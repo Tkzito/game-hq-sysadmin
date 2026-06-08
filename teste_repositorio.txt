@@ -1,0 +1,3 @@
+Teste de comunicação e repositório para o jogo 'ROOT ACCESS: DevOps Chronicles'.
+Este arquivo serve apenas como uma verificação da estrutura de diretórios do repositório local.
+Nenhum push foi realizado para o GitHub ainda.
