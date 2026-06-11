@@ -31,6 +31,8 @@ import {
   Settings
 } from "lucide-react";
 import { CHALLENGES } from "./data/challenges";
+import TerminalView from "./components/TerminalView";
+
 import { SaveState, VirtualFS, TerminalLine, ChatMessage, FSItem } from "./types";
 
 // Helper for vintage retro sounds
@@ -1653,113 +1655,24 @@ export default function App() {
 
           </div>
 
-          {/* Center Column: FULL BASH INTERACTIVE TERMINAL */}
-          <div id="terminal-main-col" className="col-span-12 lg:col-span-5 flex flex-col border border-[#00ff41] bg-black/70 rounded relative overflow-hidden min-h-[400px]">
-            
-            {/* Terminal Header Tab */}
-            <div className="bg-[#00ff41]/10 px-3 py-1.5 flex items-center justify-between border-b border-[#00ff41]/30">
-              <div className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-[#00ff41] animate-ping" />
-                <span className="text-[10px] tracking-widest font-bold text-[#00ff41] uppercase">tty1 - bash (Bunker Shell Sandbox)</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="text-[9px] text-[#00d4ff] uppercase">PASTA: {currentPath}</div>
-                <div className="flex gap-1">
-                  <div className="w-2 h-2 rounded-full bg-red-500"></div>
-                  <div className="w-2 h-2 rounded-full bg-yellow-400"></div>
-                  <div className="w-2 h-2 rounded-full bg-green-400"></div>
-                </div>
-              </div>
-            </div>
-
-            {/* Active Terminal Display Area */}
-            <div 
-              onClick={() => inputRef.current?.focus()}
-              className="flex-1 p-3 text-xs leading-relaxed overflow-y-auto font-mono text-[#00ff41] bg-black/35 shadow-inner custom-scrollbar relative max-h-[480px]"
-              style={{ minHeight: "360px" }}
-              id="terminal-history-container"
-            >
-              {terminalLines.map((ln) => {
-                let colorClass = "text-[#00ff41]";
-                if (ln.type === "error") colorClass = "text-red-400 font-bold bg-red-950/10 p-1 rounded my-0.5 block";
-                if (ln.type === "success") colorClass = "text-emerald-400 font-bold bg-emerald-950/20 p-1 rounded my-0.5 block";
-                if (ln.type === "warning") colorClass = "text-yellow-400 font-semibold";
-                if (ln.type === "system") colorClass = "text-[#00d4ff]";
-                if (ln.type === "input") colorClass = "text-gray-400";
-                
-                return (
-                  <div key={ln.id} className="mb-1 whitespace-pre-wrap">
-                    {ln.type === "input" ? (
-                      <span>{ln.text}</span>
-                    ) : (
-                      <span className={colorClass}>{ln.text}</span>
-                    )}
-                  </div>
-                );
-              })}
-              <div ref={terminalBottomRef} />
-            </div>
-
-            {/* Input Form Bar */}
-            <div className="p-3 border-t border-[#00ff41]/30 bg-black/80 flex items-center">
-              <span className="text-[11px] font-bold text-gray-400 select-none mr-1 whitespace-nowrap">
-                {saveState.playerName || "rodrigo"}@bunker-shell:{currentPath}$
-              </span>
-              <input
-                ref={inputRef}
-                type="text"
-                value={terminalInput}
-                onChange={(e) => setTerminalInput(e.target.value)}
-                onKeyDown={handleKeyDown}
-                onFocus={() => setTerminalFocus(true)}
-                onBlur={() => setTerminalFocus(false)}
-                className="flex-1 bg-transparent text-[#00ff41] text-xs font-mono border-none outline-none focus:ring-0 p-0 ml-1"
-                placeholder="digite comandos aqui..."
-                autoFocus
-                id="terminal-command-input-element"
-              />
-              <span className={`w-2.5 h-4 bg-[#00ff41] transition-all ${terminalFocus ? "animate-pulse" : "opacity-30"}`} />
-            </div>
-
-            {/* Full Immersive Nano Editor Screen Overlay */}
-            {editingFile && (
-              <div className="absolute inset-0 bg-[#07070a] border-2 border-[#00ff41] flex flex-col z-40 p-1 animate-fadeIn">
-                <div className="bg-[#00ff41] text-black px-3 py-1 font-bold text-xs uppercase flex justify-between items-center">
-                  <span>GNU nano - Arquivo: {editingFile.name} (Modo Seguro)</span>
-                  <span className="text-[10px]">Ctrl+O: Salvar  |  Ctrl+X: Sair</span>
-                </div>
-                
-                <textarea
-                  value={nanoContent}
-                  onChange={(e) => setNanoContent(e.target.value)}
-                  className="flex-1 bg-[#0a0a0c] text-[#00ff41] p-3 font-mono text-xs border-none outline-none resize-none focus:ring-0 custom-scrollbar mt-1"
-                  placeholder="# Escreva seu script profissional bash..."
-                  id="nano-text-area-editor"
-                />
-
-                <div className="bg-black border-t border-[#00ff41]/30 p-2 flex justify-between items-center text-[10px] gap-2">
-                  <span className="text-gray-400">Total: {nanoContent.length} caracteres</span>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => { setEditingFile(null); triggerBeep(200, 0.1, "sine"); }}
-                      className="bg-[#00ff41]/10 text-red-400 border border-red-500/40 px-3 py-1 rounded hover:bg-red-950/20 text-xs uppercase font-bold cursor-pointer"
-                      id="close-nano-btn"
-                    >
-                      Cancelar
-                    </button>
-                    <button
-                      onClick={saveNanoFile}
-                      className="bg-[#00ff41] text-black px-4 py-1 rounded hover:bg-emerald-300 text-xs font-bold cursor-pointer uppercase"
-                      id="save-nano-btn"
-                    >
-                      Salvar arquivo
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-
-          </div>
+          <TerminalView
+            terminalLines={terminalLines}
+            terminalBottomRef={terminalBottomRef}
+            terminalInput={terminalInput}
+            setTerminalInput={setTerminalInput}
+            handleKeyDown={handleKeyDown}
+            terminalFocus={terminalFocus}
+            setTerminalFocus={setTerminalFocus}
+            inputRef={inputRef}
+            saveState={saveState}
+            currentPath={currentPath}
+            editingFile={editingFile}
+            nanoContent={nanoContent}
+            setNanoContent={setNanoContent}
+            setEditingFile={setEditingFile}
+            saveNanoFile={saveNanoFile}
+            triggerBeep={triggerBeep}
+          />
 
           {/* Right Column: Filesystem Explorer + Dynamic Diagnostics Anim */}
           <div id="right-sidebar" className="col-span-12 lg:col-span-3 flex flex-col gap-4">
