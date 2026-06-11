@@ -1,4 +1,4 @@
-# ROOT ACCESS: DevOps Chronicles - Laboratório de Testes
+# ROOT ACCESS: DevOps Chronicles - Laboratório de Testes "Em Desenvolvimento, muitas atualizações seram feitas"
 
 Bem-vindo ao repositório de desenvolvimento local do jogo **ROOT ACCESS: DevOps Chronicles**. Este diretório foi planejado para rodar de forma isolada no seu notebook de desenvolvimento, garantindo um ambiente hermético de aprendizado para futuros SysAdmins e SREs.
 
