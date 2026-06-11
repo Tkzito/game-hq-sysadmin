@@ -1,0 +1,29 @@
+name: Module1 Docker Build CI
+
+on:
+  workflow_dispatch: {}
+  push:
+    paths:
+      - 'levels/modulo1/**'
+
+jobs:
+  build-levels:
+    name: Build Module1 level images
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU and Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Module1 Dockerfiles
+        run: |
+          set -euo pipefail
+          echo "Searching for Dockerfiles under levels/modulo1..."
+          find levels/modulo1 -type f -name Dockerfile | sort | while read -r df; do
+            dir=$(dirname "$df")
+            tag=$(echo "$dir" | sed 's|levels/||; s|/|_|g')
+            echo "--- Building $dir as $tag:latest ---"
+            docker build -f "$df" -t "$tag:latest" "$dir"
+          done
