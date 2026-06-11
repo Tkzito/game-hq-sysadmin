@@ -1,0 +1,7 @@
+FROM alpine:latest
+RUN apk add --no-cache bash dialog ncurses
+RUN adduser -D -s /bin/bash operator
+WORKDIR /home/operator
+COPY setup.sh /setup.sh
+RUN chmod +x /setup.sh && /setup.sh
+USER operator

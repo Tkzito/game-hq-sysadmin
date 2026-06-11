@@ -11,16 +11,14 @@ Este documento descreve o estado atual do desenvolvimento do jogo e define a **R
 | **Orquestrador Python (`orchestrator.py`)** | ✅ Concluído | Controle de containers Docker local, limites de CPU/Memória, validações e Servidor HTTP API integrado. |
 | **Ponte Godot (`OrchestratorBridge.gd`)** | ✅ Concluído | Script GDScript pronto para conectar a Godot Engine ao Orquestrador Python. |
 | **Interface Web (`index.html`)** | ⚡ Em Ajuste | Protótipo de jogo em HTML5, responsivo, atualizando a introdução para a nova narrativa e adaptando os desafios. |
-| **Módulo 1: O Despertar do Shell (Níveis 1-10)** | 🌟 Super-Expandido | Foco em comandos básicos de navegação e arquivos. Nível 1 integrado ao MVP/HTML5. |
-| **Módulo 2: Manipulação e Organização (Níveis 11-20)** | ⏳ Planejado | Estruturação de desafios de cópia, deleção segura e compactação de logs. |
-| **Módulo 3: Permissões e Segurança POSIX (Níveis 21-30)** | ⏳ Planejado | Controle de acessos, usuários, chmod avançado e gerenciamento de sudo. |
-| **Módulo 4: Redirecionamento e Filtros (Níveis 31-40)** | ⏳ Planejado | Encadeamento com pipes, redirecionamentos de saída/erro e filtragem com grep. |
-| **Módulo 5: Processos e Recursos (Níveis 41-50)** | ⏳ Planejado | Monitoramento de RAM, CPU, disco e sinalização de encerramento de processos. |
-| **Módulo 6: Fundamentos de Redes e SSH (Níveis 51-60)** | ⏳ Planejado | Resolução de DNS, conectividade, SSH corporativo e segurança com ufw. |
-| **Módulo 7: Shell Scripting Avançado (Níveis 61-70)** | ⏳ Planejado | Automação completa de monitoramento do sistema e loops cron. |
-| **Módulo 8: Versionamento e CI-CD (Níveis 71-80)** | ⏳ Planejado | Fluxo git, hooks de deploy automático pós-commit em produção. |
-| **Módulo 9: Conteinerização Local (Níveis 81-90)** | ⏳ Planejado | Ciclo de vida docker, Dockerfiles customizados e docker-compose multi-serviços. |
-| **Módulo 10: Engenharia de Confiabilidade (SRE) (Níveis 91-100)** | ⏳ Planejado | Alta disponibilidade, redundância ativa e lógicas de failover distribuído. |
+| **Módulo 1: O Despertar do Shell (Níveis 1-100)** | ✅ Concluído | Curso Completo de Shell Script (10 submódulos de 10 níveis). Foco em preparar o jogador como autônomo local e para certificações (LPIC-1/LFCS). |
+| **Módulo 2: Permissões, Usuários e Segurança POSIX (Níveis 101-110)** | ✅ Concluído | Gestão de privilégios, chmod octal/simbólico, chown, sudoers delegados e contas isoladas. |
+| **Módulo 3: Monitoramento de Processos e Recursos (Níveis 111-120)** | ✅ Concluído | Gestão de sinais (SIGTERM/SIGKILL), htop, consumo de RAM, swap, disco e jobs em background. |
+| **Módulo 4: Fundamentos de Redes e Acesso Remoto (Níveis 121-130)** | ✅ Concluído | Configurações de interfaces de rede, tabelas de rotas, DNS (dig/nslookup), SSH, SCP e firewall (UFW). |
+| **Módulo 5: Automação e Shell Scripting Avançado (Níveis 131-140)** | ✅ Concluído | Estrutura de automação com loops (for/while), condicionais de arquivos, crontab, logs de execução e healthchecks. |
+| **Módulo 6: Versionamento e Pipeline CI/CD (Níveis 141-150)** | ⏳ Criando | Fluxo de git (commits, branches, merges, conflitos) e automação de deploys usando Git Hooks. |
+| **Módulo 7: Conteinerização e Orquestração Local (Níveis 151-160)** | ⏳ Criando | Gerenciamento de imagens e containers Docker, criação de Dockerfiles customizados, volumes e Compose. |
+| **Módulo 8: SRE e Cibersegurança Internacional (Níveis 161-170)** | ⏳ Criando | Infraestrutura declarativa, auto-recuperação (self-healing), failover, mitigação de DDoS e auditoria forense. |
 
 ---
 
@@ -40,3 +38,17 @@ graph TD
 1.  **`roadmap.md`**: Atualizar a tabela de estados (Pendente ➔ Em Desenvolvimento ➔ Concluído) e anexar melhorias realizadas.
 2.  **`mapa_mental.md`**: Atualizar os diagramas Mermaid (fluxo de rede ou campanha) se novas tecnologias forem introduzidas.
 3.  **`Plano de projeto jogo interativo.md`**: Registrar a evolução técnica, novos comandos de validação e a expansão dos roteiros de diálogos com a IA.
+
+---
+
+## Pausa solicitada pelo mantenedor
+O desenvolvimento do Módulo 1 foi colocado em pausa a pedido do mantenedor. Estado atual salvo em: docs/modulo1_levels_audit.md e docs/modulo1_prioritized_fixes.md. Nenhum commit será realizado até validação completa manual das alterações automáticas e revisão dos placeholders.
+
+Quando retomar, siga estes passos resumidos:
+- Revisar docs/modulo1_prioritized_fixes.md e aprovar ou ajustar as correções automáticas.
+- Executar builds dos níveis problemáticos localmente e inspecionar logs em /tmp/mod1_builds.log.
+- Corrigir validators e briefings placeholder e testar com orchestrator.
+- Fazer o commit único e atômico após validação completa.
+
+(Registro de pausa: 2026-06-11T12:40:38-03:00)
+

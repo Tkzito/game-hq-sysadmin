@@ -1,0 +1,12 @@
+node_modules
+dist
+.git
+.gitignore
+levels
+orchestrator
+*.md
+organizar_workspace.sh
+root-access_-devops-chronicles
+*.zip
+*.pdf
+*.txt
