@@ -31,43 +31,37 @@ graph TD
 
 ---
 
-## 3. Mapeamento da Campanha (Módulos 1 a 10 - 100 Níveis)
+## 3. Mapeamento da Campanha (8 Módulos - 170 Níveis)
 
 ```mermaid
 gantt
-    title Curva de Aprendizado e Módulos do ROOT ACCESS (100 Níveis)
+    title Curva de Aprendizado e Módulos do ROOT ACCESS (170 Níveis)
     dateFormat  X
     axisFormat %d
     
-    section Mod 1: Shell Básico
-    Primeiros Comandos e Navegação (Nív 1-10) :active, m1, 0, 10
+    section Mod 1: Shell Básico & Autônomo
+    Shell Scripting Completo (Nív 1-100) :active, m1, 0, 100
     
-    section Mod 2: Arquivos
-    Manipulação e Busca (Nív 11-20) :active, m2, 10, 20
+    section Mod 2: Segurança POSIX
+    Permissões e Usuários (Nív 101-110) :active, m2, 100, 110
     
-    section Mod 3: Segurança
-    Permissões e Usuários POSIX (Nív 21-30) :active, m3, 20, 30
+    section Mod 3: Telemetria
+    Monitoramento de Processos (Nív 111-120) :active, m3, 110, 120
     
-    section Mod 4: Processamento
-    Redirecionamentos e Pipes (Nív 31-40) :active, m4, 30, 40
+    section Mod 4: Redes
+    Redes, DNS e SSH Remoto (Nív 121-130) :active, m4, 120, 130
     
-    section Mod 5: Monitoramento
-    Gestão de Processos/Recursos (Nív 41-50) :active, m5, 40, 50
-
-    section Mod 6: Redes
-    Conectividade e SSH Remoto (Nív 51-60) :active, m6, 50, 60
-
-    section Mod 7: Scripting
-    Automação e Scripts Bash (Nív 61-70) :active, m7, 60, 70
-
-    section Mod 8: Git & CI-CD
-    Versionamento e Hooks Automáticos (Nív 71-80) :active, m8, 70, 80
-
-    section Mod 9: Docker
-    Isolamento e Compose Local (Nív 81-90) :active, m9, 80, 90
-
-    section Mod 10: SRE & HA
-    Cluster, Resiliência e Self-Healing (Nív 91-100) :active, m10, 90, 100
+    section Mod 5: Automação
+    Scripts de Automação Avançada (Nív 131-140) :active, m5, 130, 140
+ 
+    section Mod 6: Git & CI-CD
+    Versionamento e Hooks de Deploy (Nív 141-150) :active, m6, 140, 150
+ 
+    section Mod 7: Containers
+    Docker e Orquestração Local (Nív 151-160) :active, m7, 150, 160
+ 
+    section Mod 8: SRE & HA
+    Resiliência, Failover e DDoS (Nív 161-170) :active, m10, 160, 170
 ```
 
 ---
@@ -86,3 +80,4 @@ Como o jogo roda no notebook pessoal do desenvolvedor, a arquitetura foi planeja
 > [!CAUTION]
 > **Privilégios Limitados**
 > O usuário padrão do container é o `operator` (não-root). O uso de comandos administrativos (como `sudo`) é exigido nos desafios para simular permissões de segurança reais de produção.
+

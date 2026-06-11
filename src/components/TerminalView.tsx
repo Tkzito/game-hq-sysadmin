@@ -39,6 +39,32 @@ export default function TerminalView({
   saveNanoFile,
   triggerBeep
 }: Props) {
+  // Copy terminal history to clipboard (joins visible lines)
+  const copyTerminal = async () => {
+    try {
+      const text = terminalLines.map(ln => ln.text).join('\n');
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+        // optional feedback via beep
+        triggerBeep?.(880, 0.06, 'sine');
+      } else {
+        // fallback for older browsers
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        triggerBeep?.(880, 0.06, 'sine');
+      }
+    } catch (e) {
+      console.error('Copy failed', e);
+      triggerBeep?.(220, 0.12, 'sawtooth');
+    }
+  };
+
   return (
     <div id="terminal-main-col" className="col-span-12 lg:col-span-5 flex flex-col border border-[#00ff41] bg-black/70 rounded relative overflow-hidden min-h-[400px]">
       <div className="bg-[#00ff41]/10 px-3 py-1.5 flex items-center justify-between border-b border-[#00ff41]/30">
@@ -53,13 +79,21 @@ export default function TerminalView({
             <div className="w-2 h-2 rounded-full bg-yellow-400"></div>
             <div className="w-2 h-2 rounded-full bg-green-400"></div>
           </div>
-        </div>
+        <button
+          onClick={copyTerminal}
+          title="Copiar histórico do terminal"
+          className="ml-3 text-[11px] bg-[#00ff41]/10 hover:bg-[#00ff41]/20 px-2 py-1 rounded text-[#00ff41]"
+          id="copy-terminal-history-button"
+        >
+          Copiar
+        </button>
+      </div>
       </div>
 
       <div
         onClick={() => inputRef.current?.focus()}
         className="flex-1 p-3 text-xs leading-relaxed overflow-y-auto font-mono text-[#00ff41] bg-black/35 shadow-inner custom-scrollbar relative max-h-[480px]"
-        style={{ minHeight: "360px" }}
+        style={{ minHeight: "360px", userSelect: 'text' }}
         id="terminal-history-container"
       >
         {terminalLines.map((ln) => {

@@ -78,7 +78,7 @@ export default function App() {
       registered: false,
       llmConfig: {
         provider: "simulated",
-        baseUrl: "http://host.docker.internal:11434/v1",
+        baseUrl: "http://localhost:11434/v1",
         model: "gemma2",
         apiKey: ""
       }
@@ -89,15 +89,63 @@ export default function App() {
 
   // Settings modal states
   const [configProvider, setConfigProvider] = useState<"simulated" | "gemini" | "local">("simulated");
-  const [configBaseUrl, setConfigBaseUrl] = useState("http://host.docker.internal:11434/v1");
+  const [configBaseUrl, setConfigBaseUrl] = useState("http://localhost:11434/v1");
   const [configModel, setConfigModel] = useState("gemma2");
   const [configApiKey, setConfigApiKey] = useState("");
+
+  const [autocheckResult, setAutocheckResult] = useState<{
+    checked: boolean;
+    running: boolean;
+    models: string[];
+    ramGB: number;
+    recommendation: string;
+  } | null>(null);
+  const [checkingOllama, setCheckingOllama] = useState(false);
+  const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
+
+  const handleCopyMessage = (text: string, index: number) => {
+    navigator.clipboard.writeText(text);
+    setCopiedIdx(index);
+    triggerBeep(880, 0.05, "sine");
+    setTimeout(() => {
+      setCopiedIdx(null);
+    }, 2000);
+  };
+
+  const handleCheckOllama = async (baseUrl: string) => {
+    setCheckingOllama(true);
+    try {
+      const response = await fetch("/api/ollama/check", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ baseUrl })
+      });
+      const data = await response.json();
+      setAutocheckResult({
+        checked: true,
+        running: data.running,
+        models: data.models || [],
+        ramGB: data.ramGB || 8,
+        recommendation: data.recommendation || "Llama 3.2 1B"
+      });
+    } catch (e) {
+      setAutocheckResult({
+        checked: true,
+        running: false,
+        models: [],
+        ramGB: 8,
+        recommendation: "Llama 3.2 1b (Super Leve)"
+      });
+    } finally {
+      setCheckingOllama(false);
+    }
+  };
 
   // Sync settings states with saveState when it loads or opens
   useEffect(() => {
     if (saveState.llmConfig) {
       setConfigProvider(saveState.llmConfig.provider);
-      setConfigBaseUrl(saveState.llmConfig.baseUrl || "http://host.docker.internal:11434/v1");
+      setConfigBaseUrl(saveState.llmConfig.baseUrl || "http://localhost:11434/v1");
       setConfigModel(saveState.llmConfig.model || "gemma2");
       setConfigApiKey(saveState.llmConfig.apiKey || "");
     }
@@ -244,7 +292,7 @@ export default function App() {
     if (nameInput && nameInput.value.trim()) {
       const pName = nameInput.value.trim();
       const provider = (providerSelect?.value || "simulated") as "simulated" | "gemini" | "local";
-      const baseUrl = baseUrlInput?.value || "http://host.docker.internal:11434/v1";
+      const baseUrl = baseUrlInput?.value || "http://localhost:11434/v1";
       const model = modelInput?.value || "gemma2";
       const apiKey = apiKeyInput?.value || "";
 
@@ -391,6 +439,23 @@ export default function App() {
     const newHistory = [...commandHistory, trimmed];
     setCommandHistory(newHistory);
     setHistoryIndex(-1);
+
+    // Sync commands to virtualFS as .bash_history for backend container validation
+    setVirtualFS(prev => {
+      const rootDir = prev["/"] || {};
+      return {
+        ...prev,
+        "/": {
+          ...rootDir,
+          ".bash_history": {
+            name: ".bash_history",
+            type: "file" as const,
+            content: newHistory.join("\n") + "\n",
+            permissions: 644
+          }
+        }
+      };
+    });
 
     // Tone for key press enter
     triggerBeep(450, 0.05, "sine");
@@ -607,7 +672,7 @@ export default function App() {
                 type: "system",
                 timestamp
               });
-              
+
               items.forEach(k => {
                 const f = dir[k];
                 const typeChar = f.type === "dir" ? "d" : "-";
@@ -619,11 +684,11 @@ export default function App() {
                 const r2 = permInt === 777 || permInt === 755 || permInt === 644 ? "r" : "-";
                 const w2 = permInt === 777 ? "w" : "-";
                 const x2 = permInt === 777 || permInt === 755 ? "x" : "-";
-                
+
                 const permStr = `${typeChar}r${w1}${x1}${r2}${w2}${x2}r--`;
                 const size = f.content?.length || 1024;
                 const owner = f.permissions === 600 ? "operator" : "root";
-                
+
                 newLns.push({
                   id: `${Date.now()}-ls-${k}`,
                   text: `${permStr}  1 ${owner}  staff  ${size} Jun 10 12:00  ${f.name}${f.type === "dir" ? "/" : ""}`,
@@ -651,6 +716,67 @@ export default function App() {
           }
         }
         break;
+
+      case "cd":
+        // change directory within virtualFS
+        if (args.length === 0) {
+          setTerminalLines(prev => [...prev, { id: `${Date.now()}-cd-err`, text: "cd: diretório não informado.", type: "error", timestamp }]);
+          break;
+        }
+        const target = args[0];
+        const normalize = (base: string, targ: string) => {
+          if (!targ) return base;
+          let p = targ.startsWith("/") ? targ : (base === "/" ? `/${targ}` : `${base}/${targ}`);
+          // normalize ., ..
+          const parts = p.split('/').filter(Boolean);
+          const stack: string[] = [];
+          parts.forEach(part => {
+            if (part === '.') return;
+            if (part === '..') { stack.pop(); return; }
+            stack.push(part);
+          });
+          return '/' + stack.join('/');
+        };
+        const newPath = normalize(currentPath, target);
+        // check two styles: directory entry in parent, or separate mapping for path
+        const parentDir = virtualFS[currentPath] || {};
+        const entry = parentDir[target];
+        if (virtualFS[newPath] && typeof virtualFS[newPath] === 'object') {
+          setCurrentPath(newPath === '/' ? '/' : newPath);
+          setTerminalLines(prev => [...prev, { id: `${Date.now()}-cd-ok`, text: `Diretório alterado para ${newPath}`, type: "output", timestamp }]);
+        } else if (entry && entry.type === 'dir') {
+          // ensure mapping exists for that path
+          const fullPath = (currentPath === '/' ? `/${target}` : `${currentPath}/${target}`);
+          setCurrentPath(fullPath);
+          setTerminalLines(prev => [...prev, { id: `${Date.now()}-cd-ok2`, text: `Diretório alterado para ${fullPath}`, type: "output", timestamp }]);
+        } else {
+          setTerminalLines(prev => [...prev, { id: `${Date.now()}-cd-no`, text: `cd: ${target}: Diretório não encontrado.`, type: "error", timestamp }]);
+        }
+        break;
+
+      case "tree":
+        // simple recursive print of virtualFS
+        const walk = (pathKey: string, prefix = ''): string[] => {
+          const items = virtualFS[pathKey] ? Object.keys(virtualFS[pathKey]) : [];
+          let out: string[] = [];
+          items.forEach(name => {
+            const it = virtualFS[pathKey][name];
+            out.push(`${prefix}${name}${it.type === 'dir' ? '/' : ''}`);
+            const childPath = (pathKey === '/' ? `/${name}` : `${pathKey}/${name}`);
+            if (it.type === 'dir' && virtualFS[childPath]) {
+              out = out.concat(walk(childPath, prefix + '  '));
+            }
+          });
+          return out;
+        };
+        const treeLines = walk(currentPath);
+        if (treeLines.length === 0) {
+          setTerminalLines(prev => [...prev, { id: `${Date.now()}-tree-empty`, text: '(diretório vazio)', type: 'output', timestamp }]);
+        } else {
+          setTerminalLines(prev => [...prev, ...treeLines.map(l => ({ id: `${Date.now()}-tree-${Math.random()}`, text: l, type: 'output', timestamp }))]);
+        }
+        break;
+
 
       case "cat":
         if (args.length === 0) {
@@ -731,10 +857,13 @@ export default function App() {
           }
           setVirtualFS(prev => {
             const next = { ...prev };
-            next[currentPath][permFile] = {
-              ...next[currentPath][permFile],
+            // ensure the directory object is cloned so React notices nested changes
+            const dirCopy = { ...(next[currentPath] || {}) };
+            dirCopy[permFile] = {
+              ...(dirCopy[permFile] || {}),
               permissions: permMode
             };
+            next[currentPath] = dirCopy;
             return next;
           });
           setTerminalLines(prev => [...prev, { id: `${Date.now()}-chmod-ok`, text: `Permissões POSIX do arquivo '${permFile}' modificadas com sucesso para ${permMode}.`, type: "success", timestamp }]);
@@ -989,9 +1118,12 @@ export default function App() {
         break;
       case "sh":
       case "./boot_assist.sh":
+      case "./boot_assist":
         const targetScript = cmd === "sh" ? args[0] : "boot_assist.sh";
 
-        if (saveState.currentLevelId === 1 && (targetScript === "boot_assist.sh" || targetScript === "./boot_assist.sh")) {
+        // Run when the boot_assist.sh exists in the virtual FS and target script matches
+        const scriptExists = !!virtualFS["/"]?.["boot_assist.sh"];
+        if (scriptExists && (targetScript === "boot_assist.sh" || targetScript === "./boot_assist.sh" || targetScript === "./boot_assist")) {
           setVariables(prev => ({ ...prev, ranBootAssist: true }));
           
           const scriptFile = virtualFS["/"]?.["boot_assist.sh"];
@@ -1099,9 +1231,11 @@ export default function App() {
           message: userText,
           levelName: currentChallenge.name,
           levelBriefing: currentChallenge.briefing,
+          levelHint: currentChallenge.hint,
           operatorName: saveState.playerName || "Rodrigo",
           auraIntegrity: saveState.auraIntegrity,
-          history: updatedChat.slice(-6).map(m => ({ role: m.role, content: m.content }))
+          history: updatedChat.slice(-6).map(m => ({ role: m.role, content: m.content })),
+          llmConfig: saveState.llmConfig
         })
       });
 
@@ -1456,21 +1590,138 @@ export default function App() {
                 <label className="block text-[10px] uppercase font-bold tracking-wider text-gray-400 mb-2">
                   Nome do Operador / Usuário Unix:
                 </label>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    name="playerName"
-                    required
-                    placeholder="Ex: rodrigo"
-                    className="flex-1 bg-black border border-[#00ff41]/50 px-3 py-2 text-sm text-[#00ff41] focus:outline-none focus:border-[#00ff41] focus:ring-1 focus:ring-[#00ff41] uppercase placeholder-emerald-950 font-bold"
-                  />
+                <input
+                  type="text"
+                  name="playerName"
+                  required
+                  placeholder="Ex: rodrigo"
+                  className="w-full bg-black border border-[#00ff41]/50 px-3 py-2 text-sm text-[#00ff41] focus:outline-none focus:border-[#00ff41] focus:ring-1 focus:ring-[#00ff41] uppercase placeholder-emerald-950 font-bold mb-4"
+                />
+              </div>
+
+              <div className="border-t border-[#00ff41]/10 pt-4">
+                <label className="block text-[10px] uppercase font-bold tracking-wider text-gray-400 mb-3">
+                  Configuração da IA AURA-7:
+                </label>
+                
+                <input type="hidden" name="llmProvider" value={configProvider} />
+                
+                <div className="grid grid-cols-3 gap-2 mb-4">
                   <button
-                    type="submit"
-                    className="bg-[#00ff41] text-black px-4 py-2 font-bold hover:bg-emerald-400 cursor-pointer text-xs uppercase transition-all duration-150"
+                    type="button"
+                    onClick={() => { setConfigProvider("simulated"); triggerBeep(440, 0.08, "sine"); }}
+                    className={`p-2 border flex flex-col items-center justify-between gap-1 rounded text-center transition-all cursor-pointer h-20 ${
+                      configProvider === "simulated"
+                        ? "border-[#00ff41] bg-[#00ff41]/10 text-[#00ff41] shadow-[0_0_10px_rgba(0,255,65,0.1)] font-bold"
+                        : "border-[#00ff41]/20 bg-black text-gray-500 hover:border-[#00ff41]/50 hover:text-emerald-400"
+                    }`}
                   >
-                    Registrar
+                    <HelpCircle className="w-4 h-4" />
+                    <span className="text-[9px] uppercase tracking-wider leading-none">Simulada</span>
+                    <span className="text-[7px] opacity-70 block leading-tight">Offline</span>
+                  </button>
+                  
+                  <button
+                    type="button"
+                    onClick={() => { setConfigProvider("local"); triggerBeep(440, 0.08, "sine"); }}
+                    className={`p-2 border flex flex-col items-center justify-between gap-1 rounded text-center transition-all cursor-pointer h-20 ${
+                      configProvider === "local"
+                        ? "border-[#00ff41] bg-[#00ff41]/10 text-[#00ff41] shadow-[0_0_10px_rgba(0,255,65,0.1)] font-bold"
+                        : "border-[#00ff41]/20 bg-black text-gray-500 hover:border-[#00ff41]/50 hover:text-emerald-400"
+                    }`}
+                  >
+                    <Cpu className="w-4 h-4" />
+                    <span className="text-[9px] uppercase tracking-wider leading-none">Ollama</span>
+                    <span className="text-[7px] opacity-70 block leading-tight">Local</span>
+                  </button>
+                  
+                  <button
+                    type="button"
+                    onClick={() => { setConfigProvider("gemini"); triggerBeep(440, 0.08, "sine"); }}
+                    className={`p-2 border flex flex-col items-center justify-between gap-1 rounded text-center transition-all cursor-pointer h-20 ${
+                      configProvider === "gemini"
+                        ? "border-[#00ff41] bg-[#00ff41]/10 text-[#00ff41] shadow-[0_0_10px_rgba(0,255,65,0.1)] font-bold"
+                        : "border-[#00ff41]/20 bg-black text-gray-500 hover:border-[#00ff41]/50 hover:text-emerald-400"
+                    }`}
+                  >
+                    <Zap className="w-4 h-4" />
+                    <span className="text-[9px] uppercase tracking-wider leading-none">Gemini</span>
+                    <span className="text-[7px] opacity-70 block leading-tight">Nuvem API</span>
                   </button>
                 </div>
+
+                {configProvider === "simulated" && (
+                  <div className="p-3 border border-[#00ff41]/20 bg-[#00ff41]/5 rounded mb-3 text-[9px] text-gray-400 leading-normal text-left">
+                    <span className="text-[#00ff41] font-bold">Modo Offline Simulado:</span> A AURA-7 utilizará respostas e dicas pré-definidas baseadas nas diretrizes locais de cada nível. Não requer chaves de nuvem ou execução de hardware de IA local.
+                  </div>
+                )}
+
+                {configProvider === "local" && (
+                  <div className="space-y-2.5 p-3 border border-[#00ff41]/20 bg-[#00ff41]/5 rounded mb-3 animate-fadeIn text-left">
+                    <div>
+                      <label className="block text-[8px] uppercase font-bold text-gray-500 mb-1">URL Base do Ollama:</label>
+                      <input
+                        type="text"
+                        name="llmBaseUrl"
+                        value={configBaseUrl}
+                        onChange={(e) => setConfigBaseUrl(e.target.value)}
+                        className="w-full bg-black border border-[#00ff41]/50 px-2 py-1 text-xs text-[#00ff41] focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[8px] uppercase font-bold text-gray-500 mb-1">Modelo de Linguagem:</label>
+                      <input
+                        type="text"
+                        name="llmModel"
+                        value={configModel}
+                        onChange={(e) => setConfigModel(e.target.value)}
+                        className="w-full bg-black border border-[#00ff41]/50 px-2 py-1 text-xs text-[#00ff41] focus:outline-none"
+                      />
+                    </div>
+                    
+                    <button
+                      type="button"
+                      onClick={() => handleCheckOllama(configBaseUrl)}
+                      disabled={checkingOllama}
+                      className="w-full bg-black border border-[#00ff41] text-[#00ff41] hover:bg-[#00ff41]/10 py-1 rounded text-[8px] font-bold uppercase tracking-wider cursor-pointer mt-1"
+                    >
+                      {checkingOllama ? "Verificando..." : "Autochecar Conexão e Hardware"}
+                    </button>
+
+                    {autocheckResult && autocheckResult.checked && (
+                      <div className="text-[9px] space-y-1 bg-black/60 p-2 border border-[#00ff41]/10 rounded leading-normal text-gray-300">
+                        <p>Status: <span className={autocheckResult.running ? "text-[#00ff41]" : "text-red-400"}>{autocheckResult.running ? "ONLINE" : "OFFLINE"}</span></p>
+                        <p>RAM: {autocheckResult.ramGB} GB | Recomendado: {autocheckResult.recommendation}</p>
+                        {autocheckResult.running && (
+                          <p className="text-[8px] truncate">Instalados: {autocheckResult.models.join(", ") || "nenhum"}</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {configProvider === "gemini" && (
+                  <div className="p-3 border border-[#00ff41]/20 bg-[#00ff41]/5 rounded mb-3 animate-fadeIn text-left">
+                    <label className="block text-[8px] uppercase font-bold text-gray-500 mb-1">Chave de API do Gemini:</label>
+                    <input
+                      type="password"
+                      name="llmApiKey"
+                      value={configApiKey}
+                      onChange={(e) => setConfigApiKey(e.target.value)}
+                      placeholder="Cole sua GEMINI_API_KEY"
+                      className="w-full bg-black border border-[#00ff41]/50 px-2 py-1 text-xs text-[#00ff41] focus:outline-none"
+                    />
+                  </div>
+                )}
+              </div>
+
+              <div className="pt-2">
+                <button
+                  type="submit"
+                  className="w-full bg-[#00ff41] text-black py-2.5 font-bold hover:bg-emerald-400 cursor-pointer text-xs uppercase tracking-widest transition-all duration-150"
+                >
+                  Inicializar Bunker
+                </button>
               </div>
             </form>
           </div>
@@ -1530,6 +1781,16 @@ export default function App() {
             >
               {soundOn ? <Volume2 className="w-4 h-4 text-[#00ff41]" /> : <VolumeX className="w-4 h-4 text-gray-600" />}
             </button>
+
+            {/* settings toggle button */}
+            <button 
+              onClick={() => { setSettingsOpen(true); triggerBeep(440, 0.08, "sine"); }}
+              className="p-1 border border-[#00ff41]/40 rounded hover:border-[#00ff41]"
+              title="Configurações neurais da AURA-7"
+              id="settings-toggle-btn"
+            >
+              <Settings className="w-4 h-4 text-[#00ff41]" />
+            </button>
           </div>
         </div>
 
@@ -1555,11 +1816,21 @@ export default function App() {
               <div className="flex-1 bg-black/60 border border-[#00ff41]/20 p-2 text-[11px] leading-relaxed overflow-y-auto mb-2 custom-scrollbar">
                 <div className="space-y-3">
                   {auraChat.map((msg, idx) => (
-                    <div key={idx} className={`p-1.5 rounded ${msg.role === "assistant" ? "bg-emerald-950/20 text-[#00ff41]" : "bg-black text-[#00d4ff]"}`}>
-                      <p className="font-bold text-[9px] opacity-60 uppercase mb-0.5">
-                        {msg.role === "assistant" ? "🤖 AURA-7" : `👤 ${saveState.playerName}`} — {msg.timestamp}
-                      </p>
-                      <p className="font-mono whitespace-pre-wrap">{msg.content}</p>
+                    <div key={idx} className={`p-1.5 rounded border border-[#00ff41]/5 relative ${msg.role === "assistant" ? "bg-emerald-950/20 text-[#00ff41]" : "bg-black text-[#00d4ff]"}`}>
+                      <div className="flex items-center justify-between mb-1 border-b border-[#00ff41]/10 pb-0.5">
+                        <p className="font-bold text-[8px] opacity-65 uppercase">
+                          {msg.role === "assistant" ? "🤖 AURA-7" : `👤 ${saveState.playerName}`} — {msg.timestamp}
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => handleCopyMessage(msg.content, idx)}
+                          className="text-[8px] text-gray-500 hover:text-[#00ff41] bg-black/40 px-1.5 py-0.5 rounded border border-[#00ff41]/10 hover:border-[#00ff41]/40 cursor-pointer uppercase transition-all"
+                          title="Copiar texto da mensagem"
+                        >
+                          {copiedIdx === idx ? "Copiado!" : "Copiar"}
+                        </button>
+                      </div>
+                      <p className="font-mono whitespace-pre-wrap select-text selection:bg-[#00ff41]/30">{msg.content}</p>
                     </div>
                   ))}
                   {auraLoading && (
@@ -1814,6 +2085,159 @@ export default function App() {
         </div>
 
       </div>
+
+      {settingsOpen && (
+        <div className="fixed inset-0 z-50 bg-black/85 flex items-center justify-center p-4 font-mono select-none">
+          <div className="w-full max-w-md bg-[#060608] border border-[#00ff41] p-6 rounded shadow-[0_0_40px_rgba(0,255,65,0.25)] relative animate-fadeIn">
+            <div className="flex items-center justify-between border-b border-[#00ff41] pb-3 mb-4">
+              <div className="flex items-center gap-2">
+                <Settings className="w-5 h-5 text-[#00ff41] animate-spin" style={{ animationDuration: '4s' }} />
+                <h3 className="text-xs font-bold uppercase tracking-wider text-[#00ff41]">CONFIGURAÇÕES NEURAIS DA AURA-7</h3>
+              </div>
+              <button 
+                onClick={() => setSettingsOpen(false)}
+                className="text-gray-400 hover:text-white cursor-pointer text-xs uppercase"
+              >
+                [X] fechar
+              </button>
+            </div>
+
+            <div className="space-y-4 text-xs">
+              <div>
+                <label className="block text-[10px] uppercase font-bold text-gray-400 mb-1.5 text-left">Provedor de Inteligência:</label>
+                <select
+                  value={configProvider}
+                  onChange={(e) => setConfigProvider(e.target.value as any)}
+                  className="w-full bg-black border border-[#00ff41]/50 px-2 py-1.5 text-xs text-[#00ff41] focus:outline-none"
+                >
+                  <option value="simulated">Simulada / Dicas Locais (Offline)</option>
+                  <option value="local">Ollama Local (LLM Própria)</option>
+                  <option value="gemini">Google Gemini Cloud (API)</option>
+                </select>
+              </div>
+
+              {configProvider === "local" && (
+                <div className="space-y-3 p-3 border border-[#00ff41]/20 bg-[#00ff41]/5 rounded text-left">
+                  <div>
+                    <label className="block text-[9px] uppercase font-bold text-gray-400 mb-1">URL Base do Ollama:</label>
+                    <input
+                      type="text"
+                      value={configBaseUrl}
+                      onChange={(e) => setConfigBaseUrl(e.target.value)}
+                      placeholder="http://localhost:11434/v1"
+                      className="w-full bg-black border border-[#00ff41]/50 px-2 py-1 text-xs text-[#00ff41] focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[9px] uppercase font-bold text-gray-400 mb-1">Modelo de Linguagem:</label>
+                    <input
+                      type="text"
+                      value={configModel}
+                      onChange={(e) => setConfigModel(e.target.value)}
+                      placeholder="gemma2"
+                      className="w-full bg-black border border-[#00ff41]/50 px-2 py-1 text-xs text-[#00ff41] focus:outline-none"
+                    />
+                  </div>
+
+                  <div className="pt-2 flex flex-col gap-2 border-t border-[#00ff41]/10">
+                    <button
+                      type="button"
+                      onClick={() => handleCheckOllama(configBaseUrl)}
+                      disabled={checkingOllama}
+                      className="bg-black border border-[#00ff41] text-[#00ff41] hover:bg-[#00ff41]/10 py-1.5 rounded text-[10px] font-bold uppercase tracking-wider cursor-pointer"
+                    >
+                      {checkingOllama ? "Autochecando..." : "Autochecar Conexão e Hardware"}
+                    </button>
+
+                    {autocheckResult && autocheckResult.checked && (
+                      <div className="text-[10px] space-y-1 bg-black/60 p-2 border border-[#00ff41]/10 rounded leading-relaxed text-gray-300">
+                        <p>
+                          Status Ollama:{" "}
+                          <span className={autocheckResult.running ? "text-[#00ff41]" : "text-red-400"}>
+                            {autocheckResult.running ? "ATIVO & RESPONDENDO" : "OFFLINE / INACESSÍVEL"}
+                          </span>
+                        </p>
+                        <p>Memória RAM do Host: <span className="text-white">{autocheckResult.ramGB} GB</span></p>
+                        <p>Modelo Indicado: <span className="text-[#00d4ff]">{autocheckResult.recommendation}</span></p>
+                        {autocheckResult.running && (
+                          <p className="text-[9px] truncate">
+                            Modelos: <span className="text-white font-mono">{autocheckResult.models.join(", ") || "(nenhum)"}</span>
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {configProvider === "gemini" && (
+                <div className="space-y-3 p-3 border border-[#00ff41]/20 bg-[#00ff41]/5 rounded animate-fadeIn text-left">
+                  <div>
+                    <label className="block text-[9px] uppercase font-bold text-gray-400 mb-1">Chave de API do Gemini:</label>
+                    <input
+                      type="password"
+                      value={configApiKey}
+                      onChange={(e) => setConfigApiKey(e.target.value)}
+                      placeholder="Cole sua chave GEMINI_API_KEY aqui"
+                      className="w-full bg-black border border-[#00ff41]/50 px-2 py-1 text-xs text-[#00ff41] focus:outline-none"
+                    />
+                    <span className="text-[8px] text-gray-500 mt-1 block leading-normal">
+                      A chave fica salva apenas localmente no seu localStorage de forma estritamente privada.
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex justify-between items-center pt-3 border-t border-[#00ff41]/20">
+                <button
+                  onClick={() => {
+                    if (confirm("Isso apagará a identificação atual do operador e retornará à tela de registro inicial. Confirmar?")) {
+                      setSaveState(prev => ({
+                        ...prev,
+                        registered: false,
+                        playerName: ""
+                      }));
+                      setSettingsOpen(false);
+                      triggerBeep(200, 0.4, "sawtooth");
+                    }
+                  }}
+                  className="bg-red-950/20 border border-red-800 hover:bg-red-900/30 text-red-400 px-2 py-1.5 rounded text-[10px] font-bold uppercase cursor-pointer mr-auto transition-all"
+                  title="Alterar operador ou reconfigurar conexão de IA"
+                >
+                  [Resetar Operador]
+                </button>
+
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setSettingsOpen(false)}
+                    className="bg-black border border-gray-600 hover:bg-gray-800 text-gray-400 px-3 py-1.5 rounded text-xs font-bold uppercase cursor-pointer"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={() => {
+                      setSaveState(prev => ({
+                        ...prev,
+                        llmConfig: {
+                          provider: configProvider,
+                          baseUrl: configBaseUrl,
+                          model: configModel,
+                          apiKey: configApiKey
+                        }
+                      }));
+                      setSettingsOpen(false);
+                      triggerBeep(600, 0.2, "sine");
+                    }}
+                    className="bg-[#00ff41] hover:bg-emerald-400 text-black px-4 py-1.5 rounded text-xs font-black uppercase cursor-pointer"
+                  >
+                    Salvar Configurações
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <style>{`
         .custom-scrollbar::-webkit-scrollbar {

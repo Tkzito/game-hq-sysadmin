@@ -7,8 +7,9 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      # Isso permite que o container Python controle o Docker do seu Notebook!
       - /var/run/docker.sock:/var/run/docker.sock
+      - ./levels:/app/levels
+      - ./scratch:/app/scratch
     restart: always
 
   # A Interface Gráfica
@@ -16,8 +17,5 @@ services:
     build:
       context: .
     container_name: game-web
-    ports:
-      - "8085:80"
-    depends_on:
-      - orchestrator
+    network_mode: "host"
     restart: always
