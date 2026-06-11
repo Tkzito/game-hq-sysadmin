@@ -1,0 +1,71 @@
+===============================================================
+ BUNKER 7 // MANUAL TÉCNICO DE OPERAÇÕES - ACESSO NÍVEL 1
+ Documento Classificado: OPERADOR JÚNIOR
+===============================================================
+
+Se você está lendo isso, você já descobriu como visualizar
+arquivos ocultos (ls -la). Isso é o primeiro passo de qualquer
+SysAdmin competente. Parabéns.
+
+--- CONCEITO #1: SISTEMA DE PERMISSÕES LINUX (POSIX) ---
+
+Cada arquivo tem um conjunto de permissões no formato:
+   [tipo][dono][grupo][outros]
+   Ex: -rw-------
+
+   Tipo:   - = arquivo comum, d = diretório, l = link
+   Dono:   rwx (leitura, escrita, execução)
+   Grupo:  rwx (para o grupo do arquivo)
+   Outros: rwx (para qualquer outro usuário)
+
+O script ligar_coolers.sh tem permissão -rw------- o que
+significa que o DONO pode ler e escrever, mas NINGUÉM pode
+executar. Para corrigir isso:
+
+   $ chmod +x ligar_coolers.sh
+   ou
+   $ chmod 755 ligar_coolers.sh
+
+Após isso, as permissões ficam -rwxr-xr-x (dono pode tudo,
+grupo e outros podem ler e executar).
+
+--- CONCEITO #2: POR QUE ./ ANTES DO SCRIPT? ---
+
+O Linux mantém uma lista de diretórios onde procura programas.
+Essa lista é chamada de PATH ($PATH). Para ver o seu:
+
+   $ echo $PATH
+   /usr/local/bin:/usr/bin:/bin
+
+O diretório atual (.) NÃO está no PATH por segurança!
+Imagine se um atacante colocasse um arquivo "ls" malicioso
+numa pasta e você o executasse sem querer.
+
+Por isso, para executar um script local, você DEVE especificar
+o caminho explicitamente:
+   $ ./ligar_coolers.sh   <-- ./ significa "aqui nesta pasta"
+
+--- CONCEITO #3: O QUE É UM SHELL SCRIPT? ---
+
+Um shell script é um arquivo de texto contendo comandos que
+o interpretador de shell (bash, sh, zsh) executa em sequência.
+
+A primeira linha geralmente é o "shebang":
+   #!/bin/sh   ou   #!/bin/bash
+
+Isso diz ao sistema qual interpretador usar. Sem essa linha,
+o sistema pode não saber como executar o script.
+
+--- DIAGNÓSTICO DO SISTEMA ---
+
+Temperatura atual dos servidores: CRÍTICA (89°C)
+Threshold de dano permanente: 90°C
+Tempo estimado para falha: ~8 minutos
+
+AÇÃO REQUERIDA: Execute o script de coolers IMEDIATAMENTE.
+
+===============================================================
+ "O conhecimento do 'porquê' transforma um operador em um
+  engenheiro. Nunca execute o que não entende."
+                          — Dr. Elara Voss, Fundadora do Bunker 7
+===============================================================

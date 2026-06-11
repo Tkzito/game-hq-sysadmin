@@ -1,0 +1,23 @@
+services:
+  # O Cérebro do Jogo
+  orchestrator:
+    build:
+      context: ./orchestrator
+    container_name: game-orchestrator
+    ports:
+      - "8000:8000"
+    volumes:
+      # Isso permite que o container Python controle o Docker do seu Notebook!
+      - /var/run/docker.sock:/var/run/docker.sock
+    restart: always
+
+  # A Interface Gráfica
+  web:
+    build:
+      context: .
+    container_name: game-web
+    ports:
+      - "8085:80"
+    depends_on:
+      - orchestrator
+    restart: always

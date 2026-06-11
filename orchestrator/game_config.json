@@ -1,0 +1,207 @@
+{
+  "game_title": "ROOT ACCESS: DevOps Chronicles",
+  "total_chapters": 5,
+  "currency": "Créditos Virtuais",
+  "initial_balance": 0.0,
+  "global_settings": {
+    "terminal_user": "operator",
+    "status_file_path": "/tmp/status_sistema.txt",
+    "history_file_path": "/home/operator/.bash_history",
+    "realtime_history_command": "history -a"
+  },
+  "chapters": [
+    {
+      "id": 1,
+      "title": "O Batismo de Fogo",
+      "client": "Inteligência do Bunker 7 (Laboratório Subterrâneo Privado)",
+      "severity": "CRÍTICA (Risco de Asfixia e Perda de Hardware)",
+      "reward": 50.0,
+      "gargalo_tecnico": "Arquivos ocultos e permissões POSIX",
+      "docker_image": "bunker7-level1",
+      "assets": {
+        "hq_intro": "assets/cena-1.png",
+        "hub_screen": "assets/hub-freella.png",
+        "stream_offline": "assets/status1_offline.gif",
+        "stream_online": "assets/status2_online.gif",
+        "hq_outro": "assets/tela-vitoria.png"
+      },
+      "validation": {
+        "required_file": "/tmp/status_sistema.txt",
+        "success_value": "ONLINE",
+        "key_commands": [
+          "ls -la",
+          "chmod +x",
+          "./ligar_coolers.sh"
+        ]
+      },
+      "narrative": {
+        "briefing": "--- CONTRATO DE EMERGÊNCIA: BUNKER 7 ---\n\nOBJETIVO: Estabelecer controle térmico remoto e restaurar o fluxo de oxigênio.\n\nDETALHES DO INCIDENTE:\nApós uma grave sobrecarga na rede elétrica auxiliar, o sistema automático de refrigeração e suporte à vida do Bunker 7 entrou em modo de segurança estrito (fail-safe). O administrador do local sumiu há duas semanas, e o acesso de administrador (root) foi temporariamente bloqueado para evitar sabotagem. O oxigênio está caindo e a temperatura ambiente na câmara central dos servidores já passou dos 75°C. Se atingir 90°C, todo o hardware de telemetria será derretido e a conexão será perdida para sempre.\n\nSUAS INSTRUÇÕES DE CAMPO:\n1. Você recebeu credenciais de acesso limitado como 'operator' via terminal de contingência local.\n2. Inspecione o ambiente de arquivos raiz (~). Há subdiretórios com privilégios restritos onde arquivos do sistema crítico são isolados.\n3. Localize a pasta oculta onde reside o módulo de acionamento do resfriamento.\n4. Corrija as permissões de acesso POSIX do script de emergência (o arquivo atual está protegido contra execução acidental).\n5. Execute o script de resfriamento. A telemetria local e a câmera infravermelha detectarão a ativação mecânica instantaneamente.",
+        "success_email": "DE: aura7-core@bunker7.private\nASSUNTO: Ventilação Mecânica Restabelecida - Sistemas Térmicos Estabilizados\n\nOperador,\nA telemetria de monitoramento térmico confirma que os coolers de emergência (Fan 1, 2 e 3) foram reativados com sucesso. A temperatura da sala de servidores caiu de 85°C para estáveis 42°C em menos de 180 segundos. O fluxo de oxigênio de suporte de vida foi reestabelecido e o risco imediato de derretimento do processador central foi eliminado.\n\nAgradecemos a intervenção ágil na correção das permissões POSIX usando chmod. Seu saldo de créditos virtuais foi atualizado com a recompensa contratada no painel de controle de freelas.\n\nIntegridade do Bunker 7: Estável.\nIntegridade da AURA-7: 80% Restabelecida."
+      },
+      "ai_personality": {
+        "name": "AURA-7",
+        "status": "Corrompida (Modo de Recuperação e Diagnóstico)",
+        "dialogues": {
+          "state_1_hidden": "[AURA-7]: *glitch*... Alerta de temperatura! Oxigênio residual em 12%... Conexão de rede restrita ao shell do operador. O script de controle térmico está oculto no diretório atual. DICA DE DIAGNÓSTICO: O sistema operacional esconde pastas e arquivos iniciados com '.' (ponto). Use o comando 'ls -la' para listar TODOS os arquivos, incluindo arquivos e diretórios ocultos.",
+          "state_2_permission": "[AURA-7]: *beep*... Diretório '.sistema_critico' identificado! O script de refrigeração 'ligar_coolers.sh' está lá dentro. Mas... *glitch*... detecto que ele não possui permissão de execução. Você precisa acessar o diretório usando 'cd .sistema_critico', listar seus arquivos e aplicar a permissão POSIX de execução. DICA DE DIAGNÓSTICO: Use 'chmod +x ligar_coolers.sh' para converter o script em um executável.",
+          "state_3_execute": "[AURA-7]: Excelente! O script agora possui a flag de execução (+x). Estamos prontos para resfriar os servidores. DICA DE DIAGNÓSTICO: Para executar um script no diretório atual no Linux/Alpine, você deve especificar o caminho explícito. Use './ligar_coolers.sh' para iniciar o fluxo térmico imediato!"
+        }
+      }
+    },
+    {
+      "id": 2,
+      "title": "A Crise dos Logs Fantasmas",
+      "client": "6 Irmãos Materiais para Construção",
+      "severity": "Alta",
+      "reward": 150.0,
+      "gargalo_tecnico": "Análise de armazenamento e filtragem de logs",
+      "docker_image": "6irmaos-level2",
+      "assets": {
+        "hq_intro": "assets/cena-2.png",
+        "hub_screen": "assets/hub-freella.png",
+        "stream_offline": "assets/nova-falha.gif",
+        "stream_online": "assets/status2_online.gif",
+        "hq_outro": "assets/tela-vitoria.png"
+      },
+      "validation": {
+        "required_file": "/tmp/status_sistema.txt",
+        "success_value": "ONLINE",
+        "key_commands": [
+          "df -h",
+          "du -sh",
+          "grep",
+          "rm"
+        ]
+      },
+      "narrative": {
+        "briefing": "Nosso sistema de vendas e notas fiscais travou totalmente por falta de espaço em disco no servidor local. Precisamos que você descubra o diretório responsável pelo entupimento do disco, investigue qual serviço causou o erro no log gigante e libere o espaço para que possamos emitir faturas novamente.",
+        "success_email": "DE: ti@6irmaos.com.br\nASSUNTO: RESOLVIDO: Sistema de Emissão de Notas Fiscais Online\n\nShow de bola, mestre! Graças à análise cuidadosa do log gigante antes da remoção, nossa equipe de desenvolvimento já corrigiu o bug de loop infinito no serviço [backup-scheduler-v2]. O espaço em disco foi liberado e as vendas voltaram ao normal. Recompensa de 150 créditos virtuais enviada!"
+      },
+      "ai_personality": {
+        "name": "AURA-7",
+        "status": "Parcialmente Estável (60%)",
+        "dialogues": {
+          "state_1_disk": "[AURA-7]: Sistemas de notas fiscais travados. Precisamos identificar qual partição está sem espaço. Digite 'df -h' para verificar o uso de disco das partições.",
+          "state_2_folder": "[AURA-7]: Ok, a partição '/var' está em 100%. Entre em '/var/log' e use 'du -sh *' para ver qual arquivo ou diretório é o vilão do armazenamento.",
+          "state_3_grep": "[AURA-7]: Encontramos o arquivo 'audit_glitch.log' gigante! Mas lembre-se: não apague ainda. Filtre as mensagens de erro usando 'grep -i \"ERROR\" audit_glitch.log | head -n 5' para identificarmos o serviço causador."
+        }
+      }
+    },
+    {
+      "id": 3,
+      "title": "O Vazamento Térmico",
+      "client": "Indústrias TermoShield",
+      "severity": "Crítica",
+      "reward": 300.0,
+      "gargalo_tecnico": "Diagnóstico de Containers Docker e Processos",
+      "docker_image": "termoshield-level3",
+      "assets": {
+        "hq_intro": "assets/cena-2.png",
+        "hub_screen": "assets/hub-freella-avancado.png",
+        "stream_offline": "assets/anim_status1_offline_d9995208.mp4",
+        "stream_online": "assets/anim_status2_online_8c037027.mp4",
+        "hq_outro": "assets/tela-vitoria.png"
+      },
+      "validation": {
+        "required_file": "/tmp/status_sistema.txt",
+        "success_value": "ONLINE",
+        "key_commands": [
+          "docker ps",
+          "docker exec",
+          "kill",
+          "python3"
+        ]
+      },
+      "narrative": {
+        "briefing": "Uma aplicação crítica rodando em um dos nossos containers Docker está com suspeita de memory leak e consumo abusivo de CPU, elevando drasticamente a temperatura dos nossos servidores físicos. Entre na máquina virtual, identifique o processo anômalo e desative-o antes que os fusíveis térmicos desarmem.",
+        "success_email": "DE: cto@termoshield.tech\nASSUNTO: Servidores Estáveis e Temperatura Sob Controle!\n\nExcelente trabalho de diagnóstico, operador! Você localizou e finalizou com precisão o processo causador da anomalia no container sem interromper os outros serviços adjacentes. A telemetria de resfriamento confirmou a redução na temperatura da CPU para 42°C. Recompensa de 300 créditos virtuais transferida para sua carteira."
+      },
+      "ai_personality": {
+        "name": "AURA-7",
+        "status": "Estável (80%)",
+        "dialogues": {
+          "state_1_processes": "[AURA-7]: Temperatura subindo! Módulos térmicos ameaçados. Use 'ps aux' ou 'top' para listar os processos ativos e ver quem está consumindo toda a CPU.",
+          "state_2_containers": "[AURA-7]: Há containers zumbis na máquina host. Execute 'docker ps -a' para listar todos os containers e encontrar o culpado pelo vazamento.",
+          "state_3_kill": "[AURA-7]: O PID do processo causador foi localizado. Finalize-o imediatamente usando 'kill -9 <PID>' para normalizar a carga do processador."
+        }
+      }
+    },
+    {
+      "id": 4,
+      "title": "A Pipeline Inquebrável",
+      "client": "StartUp TechVanguard",
+      "severity": "Crítica",
+      "reward": 500.0,
+      "gargalo_tecnico": "Controle de versão (Git) e Automação de Deploys (Hooks)",
+      "docker_image": "techvanguard-level4",
+      "assets": {
+        "hq_intro": "assets/cena-2.png",
+        "hub_screen": "assets/hub-freella-avancado.png",
+        "stream_offline": "assets/cap4_status1_travada.gif",
+        "stream_online": "assets/cap4_status2_fluida.gif",
+        "hq_outro": "assets/cap4_cena2_vitoria.png"
+      },
+      "validation": {
+        "required_file": "/tmp/status_sistema.txt",
+        "success_value": "ONLINE",
+        "key_commands": [
+          "git status",
+          "git add",
+          "git commit",
+          "nano .git/hooks/post-receive"
+        ]
+      },
+      "narrative": {
+        "briefing": "Dois engenheiros de infraestrutura mexeram no mesmo arquivo de deploy simultaneamente, gerando um conflito de merge (conflito de mesclagem) que paralisou toda a nossa esteira de integração contínua (CI/CD). Resolva o conflito no repositório git local, commite a correção e configure o Git Hook (post-receive) para automatizar o deploy na pasta de produção `/var/www/html`.",
+        "success_email": "DE: devops-lead@techvanguard.io\nASSUNTO: Pipeline CI/CD restabelecida com automação de Hooks!\n\nEspetacular! Conflito resolvido e, o mais importante, o script de post-receive do Git Hook agora copia os arquivos em tempo real assim que um commit é realizado. O desenvolvedor agora apenas executa o commit e o deploy acontece de forma totalmente transparente e segura. Seus 500 créditos virtuais já foram creditados."
+      },
+      "ai_personality": {
+        "name": "AURA-7",
+        "status": "Altamente Estável (95%)",
+        "dialogues": {
+          "state_1_conflict": "[AURA-7]: A esteira CI/CD está parada devido a alterações concorrentes. Rode 'git status' para identificar quais arquivos estão em conflito.",
+          "state_2_resolve": "[AURA-7]: Edite o arquivo em conflito, remova as tags de merge do Git (<<<<<<<, =======, >>>>>>>) e salve a versão correta. Depois, faça o commit.",
+          "state_3_hook": "[AURA-7]: Excelente. Agora crie o script Git Hook em '.git/hooks/post-receive' para copiar automaticamente os novos commits para '/var/www/html'."
+        }
+      }
+    },
+    {
+      "id": 5,
+      "title": "O Cluster da Resiliência",
+      "client": "Consórcio EcoGrid Solar",
+      "severity": "Crítica",
+      "reward": 800.0,
+      "gargalo_tecnico": "Alta Disponibilidade (HA), Redundância e Self-Healing",
+      "docker_image": "ecogrid-level5",
+      "assets": {
+        "hq_intro": "assets/cap3_cena2_vitoria.png",
+        "hub_screen": "assets/hub-freella-avancado.png",
+        "stream_offline": "assets/cap3_status1_desconectado.gif",
+        "stream_online": "assets/cap3_status2_conectado.gif",
+        "hq_outro": "assets/tela-vitoria.png"
+      },
+      "validation": {
+        "required_file": "/tmp/status_sistema.txt",
+        "success_value": "ONLINE",
+        "key_commands": [
+          "clusterctl get nodes",
+          "nano deployment.yaml",
+          "clusterctl apply -f"
+        ]
+      },
+      "narrative": {
+        "briefing": "Nossa telemetria de monitoramento de inversores de energia solar caiu após a única máquina que hospedava a aplicação reiniciar fisicamente. Para evitar que a distribuidora fique 'cega' novamente, configure nosso cluster local para ter redundância ativa e alta disponibilidade, escalando réplicas do container e configurando o self-healing do ecossistema.",
+        "success_email": "DE: diretoria@ecogridsolar.org\nASSUNTO: Telemetria HA funcional e protegida contra falhas de hardware!\n\nPrezado, o teste de estresse foi um sucesso completo! Simulamos o desarme físico do disjuntor do Nó Trabalhador 1 e a telemetria se manteve 100% ativa nos outros nós do cluster de redundância automática. Este nível de resiliência é exatamente o que esperávamos. Você atingiu o patamar de SRE de Elite. Recompensa de 800 créditos virtuais transferida."
+      },
+      "ai_personality": {
+        "name": "AURA-7",
+        "status": "Sincronizada (100% de Integridade)",
+        "dialogues": {
+          "state_1_cluster": "[AURA-7]: O nó de telemetria caiu. Verifique o status das instâncias de monitoramento rodando no cluster com 'clusterctl get nodes'.",
+          "state_2_replicas": "[AURA-7]: A aplicação está sem tolerância a falhas (replicas: 1). Abra o arquivo 'deployment.yaml' e aumente o valor de réplicas para 3.",
+          "state_3_apply": "[AURA-7]: Modificações salvas. Aplique as configurações com o clusterctl e faça o teste derrubando um nó para ver a autorrecuperação em ação."
+        }
+      }
+    }
+  ]
+}

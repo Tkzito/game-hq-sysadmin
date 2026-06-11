@@ -1,0 +1,10 @@
+=== DIÁRIO DO ANTIGO SYSADMIN (BUNKER 7) ===
+
+"Os geradores de backup estão instáveis... O calor está aumentando rápido.
+Ouvi barulhos nos dutos de ar. Não é um glitch mecânico normal. Algo drena a CPU.
+
+O script de coolers está aqui, mas o sistema de segurança tirou a permissão de execução.
+Use: chmod +x ligar_coolers.sh
+
+Se o script falhar por espaço em disco, procure na pasta /var/log/ por arquivos gigantes.
+Leia o .manual_tecnico.txt se quiser entender o PORQUÊ do que está fazendo."

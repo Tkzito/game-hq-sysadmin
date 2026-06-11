@@ -1,0 +1,24 @@
+# Cache de Execução do Python (Orquestrador)
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Dependências e Builds do Frontend Node/React
+node_modules/
+dist/
+.vite/
+.nuxt/
+
+# Configurações locais e Saves Efêmeros
+.env
+.env.local
+.env.*.local
+savegame.json
+/tmp/
+
+# Arquivos de log e telemetria locais
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*

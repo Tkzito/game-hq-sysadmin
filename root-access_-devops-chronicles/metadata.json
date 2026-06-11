@@ -1,0 +1,6 @@
+{
+  "name": "Root Access: DevOps Chronicles",
+  "description": "An educational cyberpunk Linux command terminal and systems simulation game where you play a freelancer climbing the ranks to SRE engineering, guided by your AI assistant AURA-7.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

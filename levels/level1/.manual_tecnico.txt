@@ -1,0 +1,23 @@
+===============================================================
+ BUNKER 7 // MANUAL TÉCNICO DE OPERAÇÕES - ACESSO NÍVEL 1
+ Documento Classificado: OPERADOR JÚNIOR
+===============================================================
+
+--- CONCEITO #1: PROCESSOS (top e kill) ---
+Se a temperatura (sensors) estiver alta, algo está consumindo a CPU.
+Use o comando 'top' para listar os processos.
+Encontrou o vilão? Use 'kill -9 <PID>' para exterminá-lo.
+
+--- CONCEITO #2: ESPAÇO EM DISCO (df e rm) ---
+Se um script reclamar de "No space left", o disco está cheio.
+Vá até /var/log/ e use 'ls -lh' para ver o tamanho dos arquivos.
+Use 'rm <arquivo>' para apagar o log gigante.
+
+--- CONCEITO #3: SISTEMA DE PERMISSÕES LINUX (POSIX) ---
+Ex: -rw------- = arquivo, dono pode ler/escrever, NINGUÉM executa
+Use: chmod +x ligar_coolers.sh
+Após: -rwxr-xr-x = dono e grupo podem executar
+
+--- CONCEITO #4: POR QUE ./ ANTES DO SCRIPT? ---
+O diretório atual (.) NÃO está no $PATH por segurança!
+Por isso: ./ligar_coolers.sh  (" ./ " = execute aqui nesta pasta)
