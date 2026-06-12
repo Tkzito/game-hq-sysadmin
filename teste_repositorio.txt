@@ -1,3 +1,5 @@
 Teste de comunicação e repositório para o jogo 'ROOT ACCESS: DevOps Chronicles'.
 Este arquivo serve apenas como uma verificação da estrutura de diretórios do repositório local.
 Nenhum push foi realizado para o GitHub ainda.
+
+Teste commit, push para validar o ruuner - feito do notebook para git e atualizado no host wsl 12/06/2026
