@@ -60,7 +60,7 @@ Para manter o ecossistema modular, portátil e otimizado para o Docker, os plane
 ### 📑 Arquivos de Detalhe e Roadmaps de Estudo (Raiz do Workspace)
 * **[MÓDULO 1: O Despertar do Shell (Níveis 1-100)](./modulo1.md)** | **[Roadmap M1](./modulo1_roadmap.md)**
     * *Foco:* Curso Completo de Shell Script (Nível Certificação Internacional). Autônomo informal, básico de terminal, scripts profissionais, tratamento de erros, getopts, regex, parsers de configurações, redirecionamentos, banco textual e interfaces Dialog. Preparatório para LPIC-1/LFCS.
-    * *Diretório dos Containers:* `levels/modulo1/sub1_ambiente/` até `sub10_dialog/`
+    * *Diretório dos Containers:* `levels/modulo1/sub1/` até `sub10/`
 * **[MÓDULO 2: Permissões, Usuários e Segurança POSIX (Níveis 101-110)](./modulo2.md)** | **[Roadmap M2](./modulo2_roadmap.md)**
     * *Foco:* Gestão de usuários/grupos, chmod (octal/simbólico), chown, controle de privilégios delegados e configuração do sudoers.
     * *Diretório dos Containers:* `levels/modulo2/`
@@ -89,12 +89,12 @@ Para garantir a execução em containers isolados, a pasta `levels/` segue uma c
 ```text
 levels/
 ├── modulo1/               # Raiz do Curso de Shell Script
-│   ├── sub1_ambiente/     # Submódulo 1.1: O Despertar do Shell (Níveis 1 a 10)
+│   ├── sub1/              # Submódulo 1.1: O Despertar do Shell (Níveis 1 a 10)
 │   │   ├── level1/        # Pasta física do Nível 1 (Contém Dockerfile, scripts e assets locais)
 │   │   ├── level2/        # Pasta física do Nível 2
 │   │   └── ...
-│   ├── sub2_boas_praticas/# Submódulo 1.2: Programas vs Scripts & Boas Práticas (11 a 20)
-│   ├── sub3_manipulacao/  # Submódulo 1.3: Manipulação de Arquivos e Busca (21 a 30)
+│   ├── sub2/              # Submódulo 1.2: Programas vs Scripts & Boas Práticas (11 a 20)
+│   ├── sub3/              # Submódulo 1.3: Manipulação de Arquivos e Busca (21 a 30)
 │   └── ...
 ├── modulo2/               # Raiz das fases do Módulo 2 (Níveis 101 a 110)
 └── ...
