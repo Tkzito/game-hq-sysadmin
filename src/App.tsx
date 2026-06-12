@@ -3223,7 +3223,21 @@ export default function App() {
               <Terminal className="w-5 h-5 text-[#00ff41]" />
               <h1 className="text-sm font-bold uppercase tracking-widest text-[#00ff41]">{t("loginTitle")}</h1>
             </div>
-            <div className="text-[9px] text-[#ff9d00] font-bold">{t("loginBooting")}</div>
+            <div className="flex items-center gap-3">
+              <div className="text-[9px] text-[#ff9d00] font-bold">{t("loginBooting")}</div>
+              <button 
+                type="button"
+                onClick={() => { 
+                  const nextLang = lang === "pt" ? "en" : "pt"; 
+                  setLang(nextLang); 
+                  triggerBeep(440, 0.08, "sine"); 
+                }}
+                className="px-1.5 py-0.5 border border-[#00ff41]/40 rounded hover:border-[#00ff41] font-mono text-[9px] font-bold text-[#00ff41] hover:bg-[#00ff41]/10 flex items-center justify-center min-w-[32px] h-5 cursor-pointer"
+                title={lang === "pt" ? "Switch to English" : "Mudar para Português"}
+              >
+                {lang.toUpperCase()}
+              </button>
+            </div>
           </div>
 
           <div className="space-y-4 text-xs leading-relaxed">
