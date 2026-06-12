@@ -2,6 +2,9 @@ import subprocess
 import os
 import tempfile
 import shutil
+import base64
+import tarfile
+import gzip
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 
@@ -115,35 +118,161 @@ def validate_level():
                 run_command(f"docker exec -u root {container_name} chmod +x /setup.sh")
                 rc, _, stderr = run_command(f"docker exec -u root {container_name} /setup.sh")
 
-        # 2. Rebuild and copy virtualFS files to /home/operator/ in the container
+        # 2. Extract baseline filesystem in container (created by setup.sh)
+        container_files = {}
+        rc, stdout, stderr = run_command(f"docker exec -u root {container_name} find /home/operator -mindepth 1 -exec stat -c '%n:%F:%a' {{}} +")
+        if rc == 0 and stdout:
+            for line in stdout.split('\n'):
+                line = line.strip()
+                if not line:
+                    continue
+                parts_stat = line.split(':')
+                if len(parts_stat) >= 3:
+                    c_path = parts_stat[0]
+                    c_type = "dir" if "directory" in parts_stat[1].lower() else "file"
+                    c_perms = int(parts_stat[2]) if parts_stat[2].isdigit() else 755
+                    container_files[c_path] = {
+                        "type": c_type,
+                        "permissions": c_perms
+                    }
+
+        # 3. Read content/gzip-text from baseline files to skip unmodified ones
+        for c_path, info in container_files.items():
+            if info["type"] == "file":
+                if c_path.endswith(".gz"):
+                    rc_z, stdout_z, _ = run_command(f"docker exec -u root {container_name} zcat \"{c_path}\"")
+                    info["gzip_text"] = stdout_z if rc_z == 0 else ""
+                else:
+                    rc_c, stdout_c, _ = run_command(f"docker exec -u root {container_name} cat \"{c_path}\"")
+                    info["content"] = stdout_c if rc_c == 0 else ""
+
+        # 4. Flatten player's virtualFS
+        player_files = {}
+        for dir_path, dir_contents in virtual_fs.items():
+            for filename, item in dir_contents.items():
+                rel_path = os.path.join(dir_path, filename).replace("//", "/")
+                abs_path = ("/home/operator" + rel_path).replace("//", "/")
+                player_files[abs_path] = {
+                    "type": item.get("type"),
+                    "content": item.get("content", ""),
+                    "permissions": item.get("permissions")
+                }
+
+        # 5. Build difference profile
+        to_delete = []
+        for c_path in container_files:
+            if c_path not in player_files:
+                to_delete.append(c_path)
+
         scratch_dir = "/app/scratch" if os.path.exists("/app/scratch") else "."
         temp_dir = tempfile.mkdtemp(dir=scratch_dir)
         try:
-            for dir_path, dir_contents in virtual_fs.items():
-                local_dir = temp_dir + dir_path
-                os.makedirs(local_dir, exist_ok=True)
+            copied_any = False
+            for abs_path, p_item in player_files.items():
+                rel_p = abs_path.replace("/home/operator", "").lstrip("/")
+                local_path = os.path.join(temp_dir, rel_p)
                 
-                for filename, item in dir_contents.items():
-                    if item.get("type") == "dir":
-                        os.makedirs(os.path.join(local_dir, filename), exist_ok=True)
-                    elif item.get("type") == "file":
-                        file_path = os.path.join(local_dir, filename)
-                        content = item.get("content", "")
-                        with open(file_path, 'wb') as f:
-                            f.write(content.encode('utf-8', errors='replace'))
-                        
-                        perms = item.get("permissions", 644)
-                        try:
-                            perm_str = str(perms)
-                            if len(perm_str) == 3:
-                                os.chmod(file_path, int(perm_str, 8))
-                        except Exception:
-                            pass
+                is_unmodified = False
+                if abs_path in container_files:
+                    c_info = container_files[abs_path]
+                    if c_info["type"] == p_item["type"]:
+                        if p_item["type"] == "dir":
+                            if p_item.get("permissions") == c_info["permissions"]:
+                                is_unmodified = True
+                        else:
+                            p_content = p_item.get("content", "")
+                            if p_content.startswith("__GZIP_TEXT__:") and "gzip_text" in c_info:
+                                uncompressed_p = p_content[len("__GZIP_TEXT__:"):]
+                                if uncompressed_p == c_info["gzip_text"] and p_item.get("permissions") == c_info["permissions"]:
+                                    is_unmodified = True
+                            elif p_content == c_info.get("content") and p_item.get("permissions") == c_info["permissions"]:
+                                is_unmodified = True
 
-            # Copy virtualFS contents to container /home/operator/
-            rc, _, stderr = run_command(f"docker cp \"{temp_dir}/.\" {container_name}:/home/operator/")
-            # Set ownership to operator
-            run_command(f"docker exec -u root {container_name} chown -R operator:operator /home/operator")
+                if is_unmodified:
+                    continue
+
+                os.makedirs(os.path.dirname(local_path), exist_ok=True)
+                if p_item["type"] == "dir":
+                    os.makedirs(local_path, exist_ok=True)
+                else:
+                    content = p_item["content"]
+                    if content.startswith("__BASE64__:"):
+                        try:
+                            b64_data = content[len("__BASE64__:"):]
+                            binary_data = base64.b64decode(b64_data)
+                            with open(local_path, 'wb') as f:
+                                f.write(binary_data)
+                        except Exception:
+                            with open(local_path, 'wb') as f:
+                                f.write(content.encode('utf-8', errors='replace'))
+                    elif content.startswith("__TAR_GZ__:") or content.startswith("__GZIP__:"):
+                        # Will be packed on host in step 6
+                        with open(local_path, 'wb') as f:
+                            f.write(content.encode('utf-8', errors='replace'))
+                    else:
+                        with open(local_path, 'wb') as f:
+                            f.write(content.encode('utf-8', errors='replace'))
+
+                    perms = p_item.get("permissions", 644)
+                    try:
+                        perm_str = str(perms)
+                        if len(perm_str) == 3:
+                            os.chmod(local_path, int(perm_str, 8))
+                    except Exception:
+                        pass
+                copied_any = True
+
+            # 6. Post-process archives on host
+            for abs_path, p_item in player_files.items():
+                if p_item["type"] == "file":
+                    content = p_item["content"]
+                    rel_p = abs_path.replace("/home/operator", "").lstrip("/")
+                    local_path = os.path.join(temp_dir, rel_p)
+
+                    if content.startswith("__TAR_GZ__:"):
+                        files_to_pack = content[len("__TAR_GZ__:"):].split(",")
+                        with tarfile.open(local_path, "w:gz") as tar:
+                            for f in files_to_pack:
+                                f = f.strip("/")
+                                src_f_path = os.path.join(temp_dir, f)
+                                if not os.path.exists(src_f_path):
+                                    c_abs = ("/home/operator/" + f).replace("//", "/")
+                                    if c_abs in container_files:
+                                        rc_cat, stdout_cat, _ = run_command(f"docker exec -u root {container_name} cat \"{c_abs}\"")
+                                        if rc_cat == 0:
+                                            os.makedirs(os.path.dirname(src_f_path), exist_ok=True)
+                                            with open(src_f_path, 'wb') as f_out:
+                                                f_out.write(stdout_cat.encode('utf-8', errors='replace'))
+                                
+                                if os.path.exists(src_f_path):
+                                    tar.add(src_f_path, arcname=f)
+                    
+                    elif content.startswith("__GZIP__:"):
+                        src_rel = content[len("__GZIP__:"):].strip("/")
+                        src_f_path = os.path.join(temp_dir, src_rel)
+                        if not os.path.exists(src_f_path):
+                            c_abs = ("/home/operator/" + src_rel).replace("//", "/")
+                            if c_abs in container_files:
+                                rc_cat, stdout_cat, _ = run_command(f"docker exec -u root {container_name} cat \"{c_abs}\"")
+                                if rc_cat == 0:
+                                    os.makedirs(os.path.dirname(src_f_path), exist_ok=True)
+                                    with open(src_f_path, 'wb') as f_out:
+                                        f_out.write(stdout_cat.encode('utf-8', errors='replace'))
+                        
+                        if os.path.exists(src_f_path):
+                            with open(src_f_path, 'rb') as f_in:
+                                with gzip.open(local_path, 'wb') as f_out:
+                                    shutil.copyfileobj(f_in, f_out)
+
+            # 7. Perform deletions
+            for del_path in to_delete:
+                run_command(f"docker exec -u root {container_name} rm -rf \"{del_path}\"")
+
+            # 8. Copy to container
+            if copied_any:
+                rc_cp, _, stderr_cp = run_command(f"docker cp \"{temp_dir}/.\" {container_name}:/home/operator/")
+                # Ensure correct ownership
+                run_command(f"docker exec -u root {container_name} chown -R operator:operator /home/operator")
             
         finally:
             shutil.rmtree(temp_dir, ignore_errors=True)

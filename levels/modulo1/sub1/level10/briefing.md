@@ -1,25 +1,20 @@
-# Nível 10 — O Consolidador do Shell
+# Nível 10 — O Primeiro Diagnóstico
 
 ## 🎮 Contexto do Freela
-Você chegou ao último nível do módulo básico! AURA-7 precisa reconstituir seu painel de instrumentos virtuais. As configurações estão divididas em dois arquivos fragmentados dentro de `/home/operator/sistema_antigo/`: `parte1.txt` e `parte2.txt`. Para aplicar as configurações de forma segura, você precisa reestruturar o diretório e mesclar os arquivos.
+O vizinho no Bunker 7 está sem oxigênio porque as ventoinhas de ventilação travaram devido a um superaquecimento técnico. Como o único operador disponível no setor, você precisa agir rapidamente para salvar vidas! AURA-7 detectou uma rotina térmica de segurança escondida nos diretórios de configuração do bunker.
 
 ## 🛠️ Missão
-1. Crie uma pasta chamada `painel` na raiz do seu diretório (`/home/operator`).
-2. Crie as subpastas `esquerdo` e `direito` dentro de `painel/` (caminhos finais: `painel/esquerdo` e `painel/direito`).
-3. Mova o arquivo `/home/operator/sistema_antigo/parte1.txt` para `painel/esquerdo/`.
-4. Mova o arquivo `/home/operator/sistema_antigo/parte2.txt` para `painel/direito/`.
-5. Crie um arquivo chamado `config_mesclada.txt` dentro da pasta `painel/` que contenha o conteúdo de `painel/esquerdo/parte1.txt` seguido imediatamente (na linha seguinte) pelo conteúdo de `painel/direito/parte2.txt`.
+1. Investigue o diretório oculto `.bunker_config` a partir da raiz (`/home/operator`).
+2. Navegue pelos subdiretórios até encontrar o script `ligar_coolers.sh` (caminho: `.bunker_config/sistema/scripts/ligar_coolers.sh`).
+3. Modifique as permissões do script usando `chmod` para torná-lo executável.
+4. Execute o script `ligar_coolers.sh` para acionar as ventoinhas auxiliares e restabelecer o fluxo de oxigênio em 21%.
 
 ## 📝 Comandos Úteis
-*   `mkdir -p`: Cria diretórios aninhados.
-*   `mv`: Move arquivos de um lugar para outro.
-*   Redirecionamento com `cat`: Você pode usar `cat arquivo1 arquivo2 > arquivo_saida` para concatenar múltiplos arquivos em um novo!
+*   `ls -la`: Lista todos os arquivos, incluindo arquivos e diretórios ocultos (iniciados com `.`).
+*   `cd`: Altera o diretório atual de trabalho.
+*   `chmod +x arquivo.sh` ou `chmod 755 arquivo.sh`: Concede permissão de execução ao script.
+*   `./arquivo.sh`: Executa um script presente no diretório atual.
 
 ## 🎯 Critério de Sucesso
-*   Inexistência de `/home/operator/sistema_antigo/parte1.txt` e `/home/operator/sistema_antigo/parte2.txt`.
-*   Existência dos arquivos nos novos caminhos de destino.
-*   O arquivo `/home/operator/painel/config_mesclada.txt` deve conter:
-    ```text
-    [PAINEL_AURA]
-    status_modulos=online
-    ```
+*   Existência do script `.bunker_config/sistema/scripts/ligar_coolers.sh` com permissão de execução.
+*   O script ter sido executado com sucesso no terminal virtual.

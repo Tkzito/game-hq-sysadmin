@@ -1,42 +1,34 @@
 #!/bin/bash
-# validator.sh - Verifica a consolidação dos passos e a mesclagem final dos arquivos.
+# validator.sh - Valida se o script ligar_coolers.sh foi executado corretamente.
 set -euo pipefail
 
-# 1. Verificar se painel/esquerdo/parte1.txt existe e original sumiu
-if [ ! -f "/home/operator/painel/esquerdo/parte1.txt" ]; then
-    echo "Falha: O arquivo parte1.txt não foi movido para /home/operator/painel/esquerdo/."
+SCRIPT_PATH="/home/operator/.bunker_config/sistema/scripts/ligar_coolers.sh"
+HISTORY_FILE="/home/operator/.bash_history"
+
+# 1. Verificar se o script ligar_coolers.sh existe
+if [ ! -f "$SCRIPT_PATH" ]; then
+    echo "Falha: O script ligar_coolers.sh não foi encontrado no caminho correto."
     exit 1
 fi
 
-if [ -f "/home/operator/sistema_antigo/parte1.txt" ]; then
-    echo "Falha: O arquivo original /home/operator/sistema_antigo/parte1.txt ainda existe."
+# 2. Verificar se o script possui permissão de execução
+if [ ! -x "$SCRIPT_PATH" ]; then
+    echo "Falha: O arquivo ligar_coolers.sh existe, mas não tem permissões de execução (chmod +x)."
     exit 1
 fi
 
-# 2. Verificar se painel/direito/parte2.txt existe e original sumiu
-if [ ! -f "/home/operator/painel/direito/parte2.txt" ]; then
-    echo "Falha: O arquivo parte2.txt não foi movido para /home/operator/painel/direito/."
+# 3. Verificar se o histórico de comandos existe
+if [ ! -f "$HISTORY_FILE" ]; then
+    echo "Falha: Histórico de comandos (.bash_history) não encontrado."
     exit 1
 fi
 
-if [ -f "/home/operator/sistema_antigo/parte2.txt" ]; then
-    echo "Falha: O arquivo original /home/operator/sistema_antigo/parte2.txt ainda existe."
+# 4. Verificar se o script foi executado de fato
+# Remove linhas com comandos comuns de edição, visualização e chmod, e busca a execução do script
+if ! grep -v -E "chmod|cat|nano|vi|vim|ls|mv|cp|rm|echo" "$HISTORY_FILE" | grep -q "ligar_coolers.sh"; then
+    echo "Falha: O arquivo ligar_coolers.sh está com a permissão correta, mas você ainda não o executou."
     exit 1
 fi
 
-# 3. Verificar a mesclagem
-MERGED="/home/operator/painel/config_mesclada.txt"
-if [ ! -f "$MERGED" ]; then
-    echo "Falha: O arquivo /home/operator/painel/config_mesclada.txt não existe."
-    exit 1
-fi
-
-CONTENT=$(cat "$MERGED" | tr -d '[:space:]')
-# Esperado: [PAINEL_AURA]status_modulos=online
-if [ "$CONTENT" != "[PAINEL_AURA]status_modulos=online" ]; then
-    echo "Falha: A mesclagem no arquivo config_mesclada.txt não está correta."
-    exit 1
-fi
-
-echo "Sucesso: O painel neural da AURA-7 foi completamente reconstituído e ativado!"
+echo "Sucesso: Os exaustores auxiliares foram ativados com sucesso e o fluxo de O2 no Bunker 7 foi normalizado!"
 exit 0

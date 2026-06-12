@@ -22,7 +22,7 @@ def get_fs_from_container(path):
     # Start temp container
     container_name = "level-fs-extractor"
     run_command("docker rm -f " + container_name)
-    run_command_verbose(f"docker run -d --name {container_name} gamehq-compile-base tail -f /dev/null")
+    run_command_verbose(f"docker run -d -u root --name {container_name} gamehq-compile-base tail -f /dev/null")
     time.sleep(0.3)
     
     try:
@@ -48,9 +48,9 @@ def get_fs_from_container(path):
                 continue
                 
             # Get type
-            ftype = run_command_verbose(f"docker exec {container_name} stat -c '%F' {p}")
+            ftype = run_command_verbose(f"docker exec {container_name} stat -c '%F' \"{p}\"")
             # Get permissions
-            perms_str = run_command_verbose(f"docker exec {container_name} stat -c '%a' {p}")
+            perms_str = run_command_verbose(f"docker exec {container_name} stat -c '%a' \"{p}\"")
             permissions = int(perms_str) if perms_str.isdigit() else 755
             
             # Map /home/operator to / in the virtualFS
@@ -73,8 +73,28 @@ def get_fs_from_container(path):
                     "permissions": permissions
                 }
             else:
-                # Read content
-                content = run_command_verbose(f"docker exec {container_name} cat {p}")
+                is_binary = False
+                content = ""
+                if basename.endswith(".gz"):
+                    zcat_out = run_command_verbose(f"docker exec {container_name} zcat \"{p}\"")
+                    if zcat_out and not zcat_out.startswith("Command failed:"):
+                        content = "__GZIP_TEXT__:" + zcat_out
+                    else:
+                        is_binary = True
+                elif basename.endswith(".png") or basename.endswith(".bin") or basename.endswith(".tar.gz") or basename.endswith(".key") or basename.endswith(".db"):
+                    is_binary = True
+                else:
+                    raw_content = run_command_verbose(f"docker exec {container_name} cat \"{p}\"")
+                    # Simple heuristic for binary data detection
+                    if "\x00" in raw_content or any(ord(c) > 127 for c in raw_content[:10]):
+                        is_binary = True
+                    else:
+                        content = raw_content
+
+                if is_binary:
+                    b64_content = run_command_verbose(f"docker exec {container_name} base64 \"{p}\" | tr -d '\\r\\n'")
+                    content = "__BASE64__:" + b64_content
+
                 initial_fs[dirname][basename] = {
                     "type": "file",
                     "content": content,

@@ -472,11 +472,6 @@ export default function App() {
       }
     ]);
 
-    // Command Args Split
-    const parts = trimmed.split(/\s+/);
-    const cmd = parts[0];
-    const args = parts.slice(1);
-
     // Helpers to resolve paths
     const getTargetDirectory = (p: string) => {
       if (p === "/" || !p) return "/";
@@ -486,6 +481,221 @@ export default function App() {
       if (!full.endsWith("/")) full += "/";
       return (full + p).replace(/\/\//g, "/");
     };
+
+    const cleanHomePath = (p: string) => {
+      if (!p) return "/";
+      return p
+        .replace(/^\/home\/operator/, "")
+        .replace(/^\/home\/operador/, "")
+        .replace(/^~/, "");
+    };
+
+    const resolveVirtualPath = (rawPath: string) => {
+      const cleaned = cleanHomePath(rawPath);
+      const absPath = getTargetDirectory(cleaned);
+      let normalized = absPath.replace(/\/\//g, "/");
+      if (normalized.endsWith("/") && normalized !== "/") {
+        normalized = normalized.substring(0, normalized.length - 1);
+      }
+      const lastSlashIdx = normalized.lastIndexOf("/");
+      const parentDir = normalized.substring(0, lastSlashIdx) || "/";
+      const name = normalized.substring(lastSlashIdx + 1);
+      return { parentDir, name, fullPath: normalized };
+    };
+
+    // Global redirection parser
+    let redirectFile = "";
+    let isAppend = false;
+    let commandToRun = trimmed;
+
+    const appendMatch = commandToRun.match(/\s+>>\s+(.+)$/);
+    const overwriteMatch = commandToRun.match(/\s+>\s+(.+)$/);
+
+    if (appendMatch) {
+      isAppend = true;
+      redirectFile = appendMatch[1].trim();
+      commandToRun = commandToRun.substring(0, appendMatch.index).trim();
+    } else if (overwriteMatch) {
+      redirectFile = overwriteMatch[1].trim();
+      commandToRun = commandToRun.substring(0, overwriteMatch.index).trim();
+    }
+
+    const parts = commandToRun.split(/\s+/);
+    const cmd = parts[0];
+    const args = parts.slice(1);
+
+    const handleRedirectOrPrint = (lines: { text: string; type: "output" | "error" | "system" | "success" | "warning" }[]) => {
+      const timestamp = new Date().toLocaleTimeString();
+      if (redirectFile) {
+        const stdout = lines
+          .filter(l => l.type === "output")
+          .map(l => l.text)
+          .join("\n");
+        const nonStdout = lines.filter(l => l.type !== "output");
+        
+        // Write to virtualFS
+        const resolved = resolveVirtualPath(redirectFile);
+        setVirtualFS(prev => {
+          const dirContents = { ...prev[resolved.parentDir] } || {};
+          const existingFile = dirContents[resolved.name];
+          let newContent = stdout;
+          if (isAppend && existingFile && existingFile.type === "file") {
+            newContent = (existingFile.content || "") + (existingFile.content && !existingFile.content.endsWith("\n") ? "\n" : "") + stdout;
+          }
+          dirContents[resolved.name] = {
+            name: resolved.name,
+            type: "file",
+            content: newContent,
+            permissions: 644
+          };
+          return {
+            ...prev,
+            [resolved.parentDir]: dirContents
+          };
+        });
+
+        // Print non-stdout lines (errors, warnings) to terminal
+        if (nonStdout.length > 0) {
+          setTerminalLines(prev => [
+            ...prev,
+            ...nonStdout.map(l => ({
+              id: `${Date.now()}-${Math.random()}`,
+              text: l.text,
+              type: l.type,
+              timestamp
+            }))
+          ]);
+        }
+      } else {
+        // Print all lines
+        setTerminalLines(prev => [
+          ...prev,
+          ...lines.map(l => ({
+            id: `${Date.now()}-${Math.random()}`,
+            text: l.text,
+            type: l.type,
+            timestamp
+          }))
+        ]);
+      }
+    };
+
+    // Check if it's a script execution (starts with ./ or is the sh command)
+    let isScriptExecution = false;
+    let scriptName = "";
+    
+    if (cmd.startsWith("./")) {
+      isScriptExecution = true;
+      scriptName = cmd.substring(2);
+    } else if (cmd === "sh" && args.length > 0) {
+      isScriptExecution = true;
+      scriptName = args[0].startsWith("./") ? args[0].substring(2) : args[0];
+    }
+
+    if (isScriptExecution) {
+      const curDir = virtualFS[currentPath] || {};
+      const file = curDir[scriptName];
+      
+      if (!file) {
+        setTerminalLines(prev => [
+          ...prev,
+          {
+            id: `${Date.now()}-sh-err`,
+            text: `sh: script '${scriptName}' indisponível ou permissões de execução negadas.`,
+            type: "error",
+            timestamp
+          }
+        ]);
+        triggerBeep(150, 0.4, "sawtooth");
+        return;
+      }
+      
+      if (file.type !== "file") {
+        setTerminalLines(prev => [
+          ...prev,
+          {
+            id: `${Date.now()}-sh-err-dir`,
+            text: `sh: ${scriptName}: é um diretório`,
+            type: "error",
+            timestamp
+          }
+        ]);
+        triggerBeep(150, 0.4, "sawtooth");
+        return;
+      }
+      
+      // Check execute permission
+      const hasExecutePerm = file.permissions === 755;
+      if (cmd.startsWith("./") && !hasExecutePerm) {
+        setTerminalLines(prev => [
+          ...prev,
+          {
+            id: `${Date.now()}-sh-perm-err`,
+            text: `bash: ./${scriptName}: Permissão negada`,
+            type: "error",
+            timestamp
+          }
+        ]);
+        triggerBeep(150, 0.4, "sawtooth");
+        return;
+      }
+      
+      // Special case: boot_assist.sh (level 1)
+      if (scriptName === "boot_assist.sh") {
+        setVariables(prev => ({ ...prev, ranBootAssist: true }));
+        const fileContent = file.content || "";
+        const isClosed = fileContent.includes('echo "Iniciando núcleo central AURA-7..."') || 
+                         (!/echo\\s+"Iniciando [^"\\n]*$/.test(fileContent) && fileContent.includes('"') && fileContent.match(/"/g)?.length === 8);
+        if (isClosed) {
+          setTerminalLines(prev => [
+            ...prev,
+            { id: `${Date.now()}-sh-run`, text: `Executando rotina shell boot_assist.sh...`, type: "system", timestamp },
+            { id: `${Date.now()}-sh-out1`, text: `Iniciando núcleo central AURA-7...`, type: "output", timestamp },
+            { id: `${Date.now()}-sh-out2`, text: `RESTAURAÇÃO COMPLETA: SISTEMA OPERANTE`, type: "success", timestamp },
+            { id: `${Date.now()}-sh-out3`, text: `Sinal de link neural online.`, type: "output", timestamp }
+          ]);
+          triggerBeep(520, 0.25, "sine");
+        } else {
+          setTerminalLines(prev => [
+            ...prev,
+            { id: `${Date.now()}-sh-err1`, text: `boot_assist.sh: linha 4: erro de sintaxe: fim prematuro de string (unterminated string)`, type: "error", timestamp },
+            { id: `${Date.now()}-sh-err2`, text: `[ALERTA DE SEGURANÇA BASH] Execução abortada pelo compilador de firmware.`, type: "error", timestamp }
+          ]);
+          triggerBeep(150, 0.4, "sawtooth");
+        }
+        return;
+      }
+      
+      // Generic script execution!
+      const lines = (file.content || "").split("\n");
+      const scriptOutputLines: TerminalLine[] = [
+        {
+          id: `${Date.now()}-sh-start`,
+          text: `Executando rotina shell ${scriptName}...`,
+          type: "system",
+          timestamp
+        }
+      ];
+      
+      lines.forEach((l, lIdx) => {
+        const trimmedLine = l.trim();
+        if (!trimmedLine || trimmedLine.startsWith("#")) return;
+        
+        if (trimmedLine.startsWith("echo ")) {
+          const echoVal = trimmedLine.substring(5).replace(/^["']|["']$/g, "");
+          scriptOutputLines.push({
+            id: `${Date.now()}-sh-out-${lIdx}`,
+            text: echoVal,
+            type: "output",
+            timestamp
+          });
+        }
+      });
+      
+      setTerminalLines(prev => [...prev, ...scriptOutputLines]);
+      triggerBeep(520, 0.15, "sine");
+      return;
+    }
 
     switch (cmd.toLowerCase()) {
       case "help":
@@ -505,8 +715,50 @@ export default function App() {
             timestamp
           },
           {
+            id: `${Date.now()}-hlp_pwd`,
+            text: `  pwd                   - Exibe o diretório de trabalho atual (caminho absoluto).`,
+            type: "output",
+            timestamp
+          },
+          {
+            id: `${Date.now()}-hlp_cd`,
+            text: `  cd <dir>              - Altera o diretório atual de trabalho.`,
+            type: "output",
+            timestamp
+          },
+          {
+            id: `${Date.now()}-hlp_mkdir`,
+            text: `  mkdir [-p] <dir>      - Cria um novo diretório (ou estrutura de diretórios com -p).`,
+            type: "output",
+            timestamp
+          },
+          {
+            id: `${Date.now()}-hlp_touch`,
+            text: `  touch <arquivo>       - Cria um arquivo vazio ou atualiza sua data.`,
+            type: "output",
+            timestamp
+          },
+          {
             id: `${Date.now()}-hlp3`,
             text: `  cat <arquivo>         - Lê e imprime o conteúdo de um arquivo em texto puro.`,
+            type: "output",
+            timestamp
+          },
+          {
+            id: `${Date.now()}-hlp_tail`,
+            text: `  tail [-n N] <arq>     - Exibe as últimas N linhas do arquivo (padrão 10).`,
+            type: "output",
+            timestamp
+          },
+          {
+            id: `${Date.now()}-hlp_head`,
+            text: `  head [-n N] <arq>     - Exibe as primeiras N linhas do arquivo (padrão 10).`,
+            type: "output",
+            timestamp
+          },
+          {
+            id: `${Date.now()}-hlp_less`,
+            text: `  less <arquivo>        - Visualiza o arquivo com navegação simplificada.`,
             type: "output",
             timestamp
           },
@@ -519,6 +771,18 @@ export default function App() {
           {
             id: `${Date.now()}-hlp5`,
             text: `  chmod <modo> <arq>    - Altera permissões POSIX (ex: chmod 600 backup_credenciais.db).`,
+            type: "output",
+            timestamp
+          },
+          {
+            id: `${Date.now()}-hlp_file`,
+            text: `  file <arquivo>        - Determina o tipo do arquivo (ASCII, PNG, gzip, data).`,
+            type: "output",
+            timestamp
+          },
+          {
+            id: `${Date.now()}-hlp_wc`,
+            text: `  wc [-l -w -c] <arq>   - Conta quebras de linha (-l), palavras (-w) ou bytes (-c).`,
             type: "output",
             timestamp
           },
@@ -543,6 +807,18 @@ export default function App() {
           {
             id: `${Date.now()}-hlp9`,
             text: `  scp <origem> <dest>   - Transfeire arquivos por criptografia SCP para outro host remoto.`,
+            type: "output",
+            timestamp
+          },
+          {
+            id: `${Date.now()}-hlp_cp`,
+            text: `  cp [-r] <orig> <dest> - Copia arquivos ou diretórios (recursivamente com -r).`,
+            type: "output",
+            timestamp
+          },
+          {
+            id: `${Date.now()}-hlp_mv`,
+            text: `  mv <origem> <destino> - Move ou renomeia arquivos ou diretórios.`,
             type: "output",
             timestamp
           },
@@ -651,71 +927,48 @@ export default function App() {
         triggerBeep(260, 0.3, "square");
         break;
 
-      case "ls":
+      case "ls": {
         const isLong = args.includes("-la") || args.includes("-l") || args.includes("-a");
         const dir = virtualFS[currentPath] || {};
         const items = Object.keys(dir);
+        const outLines: { text: string; type: "output" | "system" | "warning" | "error" }[] = [];
 
         if (items.length === 0) {
-          setTerminalLines(prev => [
-            ...prev,
-            { id: `${Date.now()}-empty`, text: "(diretório vazio)", type: "output", timestamp }
-          ]);
+          outLines.push({ text: "(diretório vazio)", type: "output" });
         } else {
           if (isLong) {
-            // Print full details
-            setTerminalLines(prev => {
-              const newLns = [...prev];
-              newLns.push({
-                id: `${Date.now()}-ls-head`,
-                text: `total ${items.length * 4}`,
-                type: "system",
-                timestamp
+            outLines.push({ text: `total ${items.length * 4}`, type: "system" });
+            items.forEach(k => {
+              const f = dir[k];
+              const typeChar = f.type === "dir" ? "d" : "-";
+              const permInt = f.permissions || 644;
+              const r1 = (permInt & 400) ? "r" : (permInt === 755 || permInt === 777 ? "r" : "-");
+              const w1 = (permInt & 200) || permInt === 600 || permInt === 755 || permInt === 777 ? "w" : "-";
+              const x1 = permInt === 755 || permInt === 777 ? "x" : "-";
+              const r2 = permInt === 777 || permInt === 755 || permInt === 644 ? "r" : "-";
+              const w2 = permInt === 777 ? "w" : "-";
+              const x2 = permInt === 777 || permInt === 755 ? "x" : "-";
+
+              const permStr = `${typeChar}r${w1}${x1}${r2}${w2}${x2}r--`;
+              const size = f.content?.length || 1024;
+              const owner = f.permissions === 600 ? "operator" : "root";
+
+              outLines.push({
+                text: `${permStr}  1 ${owner}  staff  ${size} Jun 10 12:00  ${f.name}${f.type === "dir" ? "/" : ""}`,
+                type: f.type === "dir" ? "warning" : "output"
               });
-
-              items.forEach(k => {
-                const f = dir[k];
-                const typeChar = f.type === "dir" ? "d" : "-";
-                // simple posix permission representation
-                const permInt = f.permissions || 644;
-                const r1 = (permInt & 400) ? "r" : (permInt === 755 || permInt === 777 ? "r" : "-");
-                const w1 = (permInt & 200) || permInt === 600 || permInt === 755 || permInt === 777 ? "w" : "-";
-                const x1 = permInt === 755 || permInt === 777 ? "x" : "-";
-                const r2 = permInt === 777 || permInt === 755 || permInt === 644 ? "r" : "-";
-                const w2 = permInt === 777 ? "w" : "-";
-                const x2 = permInt === 777 || permInt === 755 ? "x" : "-";
-
-                const permStr = `${typeChar}r${w1}${x1}${r2}${w2}${x2}r--`;
-                const size = f.content?.length || 1024;
-                const owner = f.permissions === 600 ? "operator" : "root";
-
-                newLns.push({
-                  id: `${Date.now()}-ls-${k}`,
-                  text: `${permStr}  1 ${owner}  staff  ${size} Jun 10 12:00  ${f.name}${f.type === "dir" ? "/" : ""}`,
-                  type: f.type === "dir" ? "warning" : "output",
-                  timestamp
-                });
-              });
-              return newLns;
             });
           } else {
-            // standard listing
             const textLine = items.map(k => {
               const f = dir[k];
               return f.type === "dir" ? `${k}/` : k;
             }).join("    ");
-            setTerminalLines(prev => [
-              ...prev,
-              {
-                id: `${Date.now()}-ls-simple`,
-                text: textLine,
-                type: "output",
-                timestamp
-              }
-            ]);
+            outLines.push({ text: textLine, type: "output" });
           }
         }
+        handleRedirectOrPrint(outLines);
         break;
+      }
 
       case "cd":
         // change directory within virtualFS
@@ -754,6 +1007,130 @@ export default function App() {
         }
         break;
 
+      case "pwd":
+        setTerminalLines(prev => [
+          ...prev,
+          {
+            id: `${Date.now()}-pwd`,
+            text: currentPath,
+            type: "output",
+            timestamp
+          }
+        ]);
+        break;
+
+      case "mkdir": {
+        if (args.length === 0) {
+          setTerminalLines(prev => [...prev, { id: `${Date.now()}-mkdir-err`, text: "mkdir: diretório não informado.", type: "error", timestamp }]);
+          break;
+        }
+        
+        const hasP = args.includes("-p") || args.some(arg => arg.startsWith("-") && arg.includes("p"));
+        const pathsToCreate = args.filter(arg => !arg.startsWith("-"));
+        
+        if (pathsToCreate.length === 0) {
+          setTerminalLines(prev => [...prev, { id: `${Date.now()}-mkdir-err-path`, text: "mkdir: informe o nome do diretório.", type: "error", timestamp }]);
+          break;
+        }
+        
+        let success = true;
+        const tempFS = { ...virtualFS };
+        
+        for (const rawPath of pathsToCreate) {
+          const targetDir = getTargetDirectory(rawPath);
+          const pathParts = targetDir.split("/").filter(Boolean);
+          
+          let currentTrack = "/";
+          for (let i = 0; i < pathParts.length; i++) {
+            const nextPart = pathParts[i];
+            const parentKey = currentTrack;
+            currentTrack = currentTrack === "/" ? `/${nextPart}` : `${currentTrack}/${nextPart}`;
+            
+            const parentDirContents = tempFS[parentKey] || {};
+            
+            if (parentDirContents[nextPart]) {
+              if (parentDirContents[nextPart].type === "file") {
+                setTerminalLines(prev => [...prev, { id: `${Date.now()}-mkdir-exists-file`, text: `mkdir: não foi possível criar o diretório '${rawPath}': Arquivo existe`, type: "error", timestamp }]);
+                success = false;
+                break;
+              }
+            } else {
+              if (!hasP && i < pathParts.length - 1) {
+                setTerminalLines(prev => [...prev, { id: `${Date.now()}-mkdir-no-parent`, text: `mkdir: não foi possível criar o diretório '${rawPath}': Arquivo ou diretório não encontrado`, type: "error", timestamp }]);
+                success = false;
+                break;
+              }
+              
+              tempFS[parentKey] = {
+                ...parentDirContents,
+                [nextPart]: {
+                  name: nextPart,
+                  type: "dir",
+                  permissions: 755
+                }
+              };
+              
+              tempFS[currentTrack] = tempFS[currentTrack] || {};
+            }
+          }
+          if (!success) break;
+        }
+        
+        if (success) {
+          setVirtualFS(tempFS);
+        }
+        break;
+      }
+
+      case "touch": {
+        if (args.length === 0) {
+          setTerminalLines(prev => [...prev, { id: `${Date.now()}-touch-err`, text: "touch: arquivo não informado.", type: "error", timestamp }]);
+          break;
+        }
+        
+        const filesToTouch = args.filter(arg => !arg.startsWith("-"));
+        if (filesToTouch.length === 0) {
+          break;
+        }
+        
+        setVirtualFS(prev => {
+          const newFS = { ...prev };
+          let success = true;
+          
+          filesToTouch.forEach(rawFile => {
+            let dirPath = currentPath;
+            let filename = rawFile;
+            
+            if (rawFile.includes("/")) {
+              const lastSlashIdx = rawFile.lastIndexOf("/");
+              const rawDir = rawFile.substring(0, lastSlashIdx);
+              filename = rawFile.substring(lastSlashIdx + 1);
+              dirPath = getTargetDirectory(rawDir);
+            }
+            
+            if (!newFS[dirPath]) {
+              setTerminalLines(prevLns => [...prevLns, { id: `${Date.now()}-touch-err-dir`, text: `touch: não foi possível tocar '${rawFile}': Arquivo ou diretório não encontrado`, type: "error", timestamp }]);
+              success = false;
+              return;
+            }
+            
+            const dirContents = { ...newFS[dirPath] };
+            if (!dirContents[filename]) {
+              dirContents[filename] = {
+                name: filename,
+                type: "file",
+                content: "",
+                permissions: 644
+              };
+              newFS[dirPath] = dirContents;
+            }
+          });
+          
+          return success ? newFS : prev;
+        });
+        break;
+      }
+
       case "tree":
         // simple recursive print of virtualFS
         const walk = (pathKey: string, prefix = ''): string[] => {
@@ -778,31 +1155,468 @@ export default function App() {
         break;
 
 
-      case "cat":
+      case "cat": {
         if (args.length === 0) {
-          setTerminalLines(prev => [...prev, { id: `${Date.now()}-cat-err`, text: "cat: arquivo não especificado.", type: "error", timestamp }]);
+          handleRedirectOrPrint([{ text: "cat: arquivo não especificado.", type: "error" }]);
           break;
         }
+
         const fileTarget = args[0];
         const activeDir = virtualFS[currentPath] || {};
         const targetFileItem = activeDir[fileTarget];
 
         if (!targetFileItem) {
-          setTerminalLines(prev => [...prev, { id: `${Date.now()}-cat-no`, text: `cat: ${fileTarget}: Arquivo ou diretório não encontrado.`, type: "error", timestamp }]);
+          handleRedirectOrPrint([{ text: `cat: ${fileTarget}: Arquivo ou diretório não encontrado.`, type: "error" }]);
         } else if (targetFileItem.type === "dir") {
-          setTerminalLines(prev => [...prev, { id: `${Date.now()}-cat-dir`, text: `cat: ${fileTarget}: É um diretório.`, type: "error", timestamp }]);
+          handleRedirectOrPrint([{ text: `cat: ${fileTarget}: É um diretório.`, type: "error" }]);
+        } else {
+          let content = targetFileItem.content || "";
+          if (content.startsWith("__GZIP_TEXT__:")) {
+            content = content.substring("__GZIP_TEXT__:".length);
+          }
+          handleRedirectOrPrint([{ text: content || "(arquivo vazio)", type: "output" }]);
+        }
+        break;
+      }
+
+      case "tail": {
+        let linesCount = 10;
+        let fileTarget = "";
+        
+        for (let i = 0; i < args.length; i++) {
+          if (args[i] === "-n" && i + 1 < args.length) {
+            linesCount = parseInt(args[i + 1], 10) || 10;
+            i++;
+          } else if (args[i].startsWith("-n") && args[i].length > 2) {
+            linesCount = parseInt(args[i].substring(2), 10) || 10;
+          } else if (!args[i].startsWith("-")) {
+            fileTarget = args[i];
+          }
+        }
+        
+        if (!fileTarget) {
+          setTerminalLines(prev => [...prev, { id: `${Date.now()}-tail-err`, text: "tail: especifique o arquivo.", type: "error", timestamp }]);
+          break;
+        }
+        
+        const activeDir = virtualFS[currentPath] || {};
+        const targetFileItem = activeDir[fileTarget];
+        
+        if (!targetFileItem) {
+          setTerminalLines(prev => [...prev, { id: `${Date.now()}-tail-no`, text: `tail: ${fileTarget}: Arquivo ou diretório não encontrado.`, type: "error", timestamp }]);
+        } else if (targetFileItem.type === "dir") {
+          setTerminalLines(prev => [...prev, { id: `${Date.now()}-tail-dir`, text: `tail: ${fileTarget}: É um diretório.`, type: "error", timestamp }]);
+        } else {
+          const fileLines = (targetFileItem.content || "").split("\n");
+          const lastLines = fileLines.slice(-linesCount);
+          setTerminalLines(prev => [
+            ...prev,
+            ...lastLines.map((l, idx) => ({
+              id: `${Date.now()}-tail-out-${idx}`,
+              text: l,
+              type: "output" as const,
+              timestamp
+            }))
+          ]);
+        }
+        break;
+      }
+
+      case "head": {
+        let linesCount = 10;
+        let fileTarget = "";
+        
+        for (let i = 0; i < args.length; i++) {
+          if (args[i] === "-n" && i + 1 < args.length) {
+            linesCount = parseInt(args[i + 1], 10) || 10;
+            i++;
+          } else if (args[i].startsWith("-n") && args[i].length > 2) {
+            linesCount = parseInt(args[i].substring(2), 10) || 10;
+          } else if (!args[i].startsWith("-")) {
+            fileTarget = args[i];
+          }
+        }
+        
+        if (!fileTarget) {
+          setTerminalLines(prev => [...prev, { id: `${Date.now()}-head-err`, text: "head: especifique o arquivo.", type: "error", timestamp }]);
+          break;
+        }
+        
+        const activeDir = virtualFS[currentPath] || {};
+        const targetFileItem = activeDir[fileTarget];
+        
+        if (!targetFileItem) {
+          setTerminalLines(prev => [...prev, { id: `${Date.now()}-head-no`, text: `head: ${fileTarget}: Arquivo ou diretório não encontrado.`, type: "error", timestamp }]);
+        } else if (targetFileItem.type === "dir") {
+          setTerminalLines(prev => [...prev, { id: `${Date.now()}-head-dir`, text: `head: ${fileTarget}: É um diretório.`, type: "error", timestamp }]);
+        } else {
+          const fileLines = (targetFileItem.content || "").split("\n");
+          const firstLines = fileLines.slice(0, linesCount);
+          setTerminalLines(prev => [
+            ...prev,
+            ...firstLines.map((l, idx) => ({
+              id: `${Date.now()}-head-out-${idx}`,
+              text: l,
+              type: "output" as const,
+              timestamp
+            }))
+          ]);
+        }
+        break;
+      }
+
+      case "less": {
+        if (args.length === 0) {
+          setTerminalLines(prev => [...prev, { id: `${Date.now()}-less-err`, text: "less: arquivo não especificado.", type: "error", timestamp }]);
+          break;
+        }
+        const fileTarget = args[0];
+        const activeDir = virtualFS[currentPath] || {};
+        const targetFileItem = activeDir[fileTarget];
+        
+        if (!targetFileItem) {
+          setTerminalLines(prev => [...prev, { id: `${Date.now()}-less-no`, text: `less: ${fileTarget}: Arquivo ou diretório não encontrado.`, type: "error", timestamp }]);
+        } else if (targetFileItem.type === "dir") {
+          setTerminalLines(prev => [...prev, { id: `${Date.now()}-less-dir`, text: `less: ${fileTarget}: É um diretório.`, type: "error", timestamp }]);
         } else {
           setTerminalLines(prev => [
             ...prev,
             {
-              id: `${Date.now()}-cat-print`,
-              text: targetFileItem.content || "(arquivo vazio)",
+              id: `${Date.now()}-less-start`,
+              text: `=== Visualizando ${fileTarget} === (Pressione Q no terminal real se estivesse em SSH)`,
+              type: "system",
+              timestamp
+            },
+            ...((targetFileItem.content || "").split("\n").map((l, idx) => ({
+              id: `${Date.now()}-less-out-${idx}`,
+              text: l,
+              type: "output" as const,
+              timestamp
+            })))
+          ]);
+        }
+        break;
+      }
+
+      case "file": {
+        if (args.length === 0) {
+          setTerminalLines(prev => [...prev, { id: `${Date.now()}-file-err`, text: "file: especifique o arquivo.", type: "error", timestamp }]);
+          break;
+        }
+        const fileTarget = args[0];
+        const activeDir = virtualFS[currentPath] || {};
+        const targetFileItem = activeDir[fileTarget];
+        
+        if (!targetFileItem) {
+          setTerminalLines(prev => [...prev, { id: `${Date.now()}-file-no`, text: `${fileTarget}: cannot open \`${fileTarget}' (No such file or directory)`, type: "error", timestamp }]);
+        } else if (targetFileItem.type === "dir") {
+          setTerminalLines(prev => [...prev, { id: `${Date.now()}-file-dir`, text: `${fileTarget}: directory`, type: "output", timestamp }]);
+        } else {
+          let fileTypeInfo = "ASCII text";
+          const content = targetFileItem.content || "";
+          
+          if (content.startsWith("PNG") || content.includes("PNG")) {
+            fileTypeInfo = "PNG image data, 800 x 600, 8-bit/color RGBA, non-interlaced";
+          } else if (content.startsWith("\b") || content.startsWith("\x1f\x8b")) {
+            fileTypeInfo = "gzip compressed data, max compression, from Unix";
+          } else if (/[\x00-\x08\x0B\x0C\x0E-\x1F]/.test(content)) {
+            fileTypeInfo = "data";
+          }
+          
+          setTerminalLines(prev => [
+            ...prev,
+            {
+              id: `${Date.now()}-file-out`,
+              text: `${fileTarget}: ${fileTypeInfo}`,
               type: "output",
               timestamp
             }
           ]);
         }
         break;
+      }
+
+      case "wc": {
+        if (args.length === 0) {
+          setTerminalLines(prev => [...prev, { id: `${Date.now()}-wc-err`, text: "wc: especifique o arquivo.", type: "error", timestamp }]);
+          break;
+        }
+
+        if (args.includes("--help") || args.includes("-h")) {
+          setTerminalLines(prev => [
+            ...prev,
+            {
+              id: `${Date.now()}-wc-help-1`,
+              text: "Uso: wc [OPÇÃO]... [ARQUIVO]...",
+              type: "output",
+              timestamp
+            },
+            {
+              id: `${Date.now()}-wc-help-2`,
+              text: "Exibe a contagem de quebras de linha, palavras e bytes de cada ARQUIVO.",
+              type: "output",
+              timestamp
+            },
+            {
+              id: `${Date.now()}-wc-help-3`,
+              text: "  -c, --bytes            exibe a contagem de bytes",
+              type: "output",
+              timestamp
+            },
+            {
+              id: `${Date.now()}-wc-help-4`,
+              text: "  -l, --lines            exibe a contagem de quebras de linha",
+              type: "output",
+              timestamp
+            },
+            {
+              id: `${Date.now()}-wc-help-5`,
+              text: "  -w, --words            exibe a contagem de palavras",
+              type: "output",
+              timestamp
+            },
+            {
+              id: `${Date.now()}-wc-help-6`,
+              text: "      --help     exibe esta ajuda e sai",
+              type: "output",
+              timestamp
+            }
+          ]);
+          break;
+        }
+        
+        const optL = args.includes("-l");
+        const optW = args.includes("-w");
+        const optC = args.includes("-c");
+        const noOpts = !optL && !optW && !optC;
+        
+        const filesToCount = args.filter(arg => !arg.startsWith("-"));
+        if (filesToCount.length === 0) {
+          setTerminalLines(prev => [...prev, { id: `${Date.now()}-wc-err-file`, text: "wc: informe o arquivo.", type: "error", timestamp }]);
+          break;
+        }
+        
+        const activeDir = virtualFS[currentPath] || {};
+        const wcLines: TerminalLine[] = [];
+        
+        filesToCount.forEach(fileTarget => {
+          const targetFileItem = activeDir[fileTarget];
+          if (!targetFileItem) {
+            wcLines.push({ id: `${Date.now()}-wc-no-${fileTarget}`, text: `wc: ${fileTarget}: Arquivo ou diretório não encontrado`, type: "error", timestamp });
+            return;
+          }
+          
+          if (targetFileItem.type === "dir") {
+            wcLines.push({ id: `${Date.now()}-wc-dir-${fileTarget}`, text: `wc: ${fileTarget}: É um diretório`, type: "error", timestamp });
+            return;
+          }
+          
+          const content = targetFileItem.content || "";
+          const lines = content === "" ? 0 : content.split("\n").length;
+          const words = content.trim() === "" ? 0 : content.trim().split(/\s+/).length;
+          const bytes = content.length;
+          
+          let outputText = "";
+          if (noOpts) {
+            outputText = `      ${lines}      ${words}     ${bytes} ${fileTarget}`;
+          } else {
+            const parts: string[] = [];
+            if (optL) parts.push(`      ${lines}`);
+            if (optW) parts.push(`      ${words}`);
+            if (optC) parts.push(`      ${bytes}`);
+            outputText = `${parts.join("")} ${fileTarget}`;
+          }
+          
+          wcLines.push({
+            id: `${Date.now()}-wc-out-${fileTarget}`,
+            text: outputText,
+            type: "output",
+            timestamp
+          });
+        });
+        
+        setTerminalLines(prev => [...prev, ...wcLines]);
+        break;
+      }
+
+      case "cp": {
+        const isRecursive = args.includes("-r") || args.some(arg => arg.startsWith("-") && arg.includes("r"));
+        const nonFlagArgs = args.filter(arg => !arg.startsWith("-"));
+        
+        if (nonFlagArgs.length < 2) {
+          setTerminalLines(prev => [...prev, { id: `${Date.now()}-cp-err`, text: "cp: argumentos de origem e/ou destino ausentes.", type: "error", timestamp }]);
+          break;
+        }
+        
+        const src = nonFlagArgs[0];
+        const dest = nonFlagArgs[1];
+        
+        const srcInfo = resolveVirtualPath(src);
+        const destInfo = resolveVirtualPath(dest);
+        
+        const srcParent = virtualFS[srcInfo.parentDir] || {};
+        const srcItem = srcParent[srcInfo.name];
+        
+        if (!srcItem) {
+          setTerminalLines(prev => [...prev, { id: `${Date.now()}-cp-no-src`, text: `cp: '${src}': Arquivo ou diretório não encontrado`, type: "error", timestamp }]);
+          break;
+        }
+        
+        if (srcItem.type === "dir" && !isRecursive) {
+          setTerminalLines(prev => [...prev, { id: `${Date.now()}-cp-dir-flag`, text: `cp: omitindo o diretório '${src}' (especifique -r para copiar recursivamente)`, type: "error", timestamp }]);
+          break;
+        }
+        
+        const destDirContents = virtualFS[destInfo.fullPath];
+        const destIsExistingDir = destDirContents && typeof destDirContents === "object";
+        
+        setVirtualFS(prev => {
+          const newFS = { ...prev };
+          
+          if (srcItem.type === "file") {
+            const fileContent = srcItem.content || "";
+            const filePerms = srcItem.permissions || 644;
+            
+            if (destIsExistingDir) {
+              const targetDirPath = destInfo.fullPath;
+              newFS[targetDirPath] = {
+                ...newFS[targetDirPath],
+                [srcInfo.name]: {
+                  name: srcInfo.name,
+                  type: "file",
+                  content: fileContent,
+                  permissions: filePerms
+                }
+              };
+            } else {
+              const targetParentPath = destInfo.parentDir;
+              if (newFS[targetParentPath]) {
+                newFS[targetParentPath] = {
+                  ...newFS[targetParentPath],
+                  [destInfo.name]: {
+                    name: destInfo.name,
+                    type: "file",
+                    content: fileContent,
+                    permissions: filePerms
+                  }
+                };
+              } else {
+                setTerminalLines(prevLns => [...prevLns, { id: `${Date.now()}-cp-err-parent`, text: `cp: não foi possível copiar para '${dest}': Diretório pai não encontrado`, type: "error", timestamp }]);
+              }
+            }
+          } else if (srcItem.type === "dir" && isRecursive) {
+            const srcPrefix = srcInfo.fullPath === "/" ? "/" : srcInfo.fullPath + "/";
+            const targetBasePath = destIsExistingDir 
+              ? (destInfo.fullPath === "/" ? `/${srcInfo.name}` : `${destInfo.fullPath}/${srcInfo.name}`)
+              : destInfo.fullPath;
+            
+            const targetBaseInfo = resolveVirtualPath(targetBasePath);
+            if (newFS[targetBaseInfo.parentDir]) {
+              newFS[targetBaseInfo.parentDir] = {
+                ...newFS[targetBaseInfo.parentDir],
+                [targetBaseInfo.name]: {
+                  name: targetBaseInfo.name,
+                  type: "dir",
+                  permissions: srcItem.permissions || 755
+                }
+              };
+              
+              newFS[targetBasePath] = { ...newFS[srcInfo.fullPath] };
+              
+              Object.keys(newFS).forEach(k => {
+                if (k.startsWith(srcPrefix)) {
+                  const relativeSubPath = k.substring(srcPrefix.length);
+                  const subTargetPath = `${targetBasePath}/${relativeSubPath}`;
+                  newFS[subTargetPath] = { ...newFS[k] };
+                }
+              });
+            }
+          }
+          
+          return newFS;
+        });
+        break;
+      }
+
+      case "mv": {
+        if (args.length < 2) {
+          setTerminalLines(prev => [...prev, { id: `${Date.now()}-mv-err`, text: "mv: argumentos de origem e/ou destino ausentes.", type: "error", timestamp }]);
+          break;
+        }
+        
+        const src = args[0];
+        const dest = args[1];
+        
+        const srcInfo = resolveVirtualPath(src);
+        const destInfo = resolveVirtualPath(dest);
+        
+        const srcParent = virtualFS[srcInfo.parentDir] || {};
+        const srcItem = srcParent[srcInfo.name];
+        
+        if (!srcItem) {
+          setTerminalLines(prev => [...prev, { id: `${Date.now()}-mv-no-src`, text: `mv: '${src}': Arquivo ou diretório não encontrado`, type: "error", timestamp }]);
+          break;
+        }
+        
+        const destDirContents = virtualFS[destInfo.fullPath];
+        const destIsExistingDir = destDirContents && typeof destDirContents === "object";
+        
+        setVirtualFS(prev => {
+          const newFS = { ...prev };
+          
+          const updatedSrcParent = { ...newFS[srcInfo.parentDir] };
+          delete updatedSrcParent[srcInfo.name];
+          newFS[srcInfo.parentDir] = updatedSrcParent;
+          
+          if (srcItem.type === "file") {
+            if (destIsExistingDir) {
+              const targetDirPath = destInfo.fullPath;
+              newFS[targetDirPath] = {
+                ...newFS[targetDirPath],
+                [srcInfo.name]: srcItem
+              };
+            } else {
+              const targetParentPath = destInfo.parentDir;
+              newFS[targetParentPath] = {
+                ...newFS[targetParentPath],
+                [destInfo.name]: {
+                  ...srcItem,
+                  name: destInfo.name
+                }
+              };
+            }
+          } else {
+            const targetBasePath = destIsExistingDir
+              ? (destInfo.fullPath === "/" ? `/${srcInfo.name}` : `${destInfo.fullPath}/${srcInfo.name}`)
+              : destInfo.fullPath;
+            
+            const targetBaseInfo = resolveVirtualPath(targetBasePath);
+            newFS[targetBaseInfo.parentDir] = {
+              ...newFS[targetBaseInfo.parentDir],
+              [targetBaseInfo.name]: {
+                ...srcItem,
+                name: targetBaseInfo.name
+              }
+            };
+            
+            newFS[targetBasePath] = newFS[srcInfo.fullPath];
+            delete newFS[srcInfo.fullPath];
+            
+            const srcPrefix = srcInfo.fullPath === "/" ? "/" : srcInfo.fullPath + "/";
+            Object.keys(newFS).forEach(k => {
+              if (k.startsWith(srcPrefix)) {
+                const relativeSubPath = k.substring(srcPrefix.length);
+                const subTargetPath = `${targetBasePath}/${relativeSubPath}`;
+                newFS[subTargetPath] = newFS[k];
+                delete newFS[k];
+              }
+            });
+          }
+          
+          return newFS;
+        });
+        break;
+      }
 
       case "nano":
         if (args.length === 0) {
@@ -1104,85 +1918,890 @@ export default function App() {
         }
         break;
 
-      case "echo":
-        const echoText = args.join(" ").replace(/^["'"]|["'"]$/g, "");
-        setTerminalLines(prev => [
-          ...prev,
-          {
-            id: `${Date.now()}-echo-output`,
-            text: echoText,
-            type: "output",
-            timestamp
-          }
-        ]);
+      case "echo": {
+        const echoText = args.join(" ").replace(/^["']/g, "").replace(/["']$/g, "");
+        handleRedirectOrPrint([{ text: echoText, type: "output" }]);
         break;
+      }
       case "sh":
-      case "./boot_assist.sh":
-      case "./boot_assist":
-        const targetScript = cmd === "sh" ? args[0] : "boot_assist.sh";
+        setTerminalLines(prev => [...prev, { id: `${Date.now()}-sh-empty`, text: "sh: nome de script requerido", type: "error", timestamp }]);
+        break;
 
-        // Run when the boot_assist.sh exists in the virtual FS and target script matches
-        const scriptExists = !!virtualFS["/"]?.["boot_assist.sh"];
-        if (scriptExists && (targetScript === "boot_assist.sh" || targetScript === "./boot_assist.sh" || targetScript === "./boot_assist")) {
-          setVariables(prev => ({ ...prev, ranBootAssist: true }));
-          
-          const scriptFile = virtualFS["/"]?.["boot_assist.sh"];
-          const fileContent = scriptFile?.content || "";
-          
-          const isClosed = fileContent.includes('echo "Iniciando núcleo central AURA-7..."') || 
-                           (!/echo\s+"Iniciando [^"\n]*$/.test(fileContent) && fileContent.includes('"') && fileContent.match(/"/g)?.length === 8);
-
-          if (isClosed) {
-            setTerminalLines(prev => [
-              ...prev,
-              {
-                id: `${Date.now()}-sh-run`,
-                text: `Executando rotina shell boot_assist.sh...`,
-                type: "system",
-                timestamp
-              },
-              {
-                id: `${Date.now()}-sh-output1`,
-                text: `Iniciando núcleo central AURA-7...`,
-                type: "output",
-                timestamp
-              },
-              {
-                id: `${Date.now()}-sh-output2`,
-                text: `RESTAURAÇÃO COMPLETA: SISTEMA OPERANTE`,
-                type: "success",
-                timestamp
-              },
-              {
-                id: `${Date.now()}-sh-output3`,
-                text: `Sinal de link neural online.`,
-                type: "output",
-                timestamp
-              }
-            ]);
-            triggerBeep(520, 0.25, "sine");
-          } else {
-            setTerminalLines(prev => [
-              ...prev,
-              {
-                id: `${Date.now()}-sh-err1`,
-                text: `boot_assist.sh: linha 4: erro de sintaxe: fim prematuro de string (unterminated string)`,
-                type: "error",
-                timestamp
-              },
-              {
-                id: `${Date.now()}-sh-err2`,
-                text: `[ALERTA DE SEGURANÇA BASH] Execução abortada pelo compilador de firmware.`,
-                type: "error",
-                timestamp
-              }
-            ]);
-            triggerBeep(150, 0.4, "sawtooth");
+      case "rm": {
+        const isRecursive = args.includes("-r") || args.includes("-R") || args.some(arg => arg.startsWith("-") && (arg.includes("r") || arg.includes("R")));
+        const force = args.includes("-f") || args.some(arg => arg.startsWith("-") && arg.includes("f"));
+        const targets = args.filter(arg => !arg.startsWith("-"));
+        
+        if (targets.length === 0) {
+          if (!force) {
+            handleRedirectOrPrint([{ text: "rm: falta operando", type: "error" }]);
           }
-        } else {
-          setTerminalLines(prev => [...prev, { id: `${Date.now()}-sh-miss`, text: `sh: script '${targetScript}' indisponível ou permissões de execução negadas.`, type: "error", timestamp }]);
+          break;
+        }
+        
+        let success = true;
+        const outLines: { text: string; type: "output" | "error" }[] = [];
+        
+        setVirtualFS(prev => {
+          const next = { ...prev };
+          targets.forEach(rawPath => {
+            const resolved = resolveVirtualPath(rawPath);
+            const parentDir = next[resolved.parentDir];
+            if (!parentDir || !parentDir[resolved.name]) {
+              if (!force) {
+                outLines.push({ text: `rm: não foi possível remover '${rawPath}': Arquivo ou diretório não encontrado`, type: "error" });
+                success = false;
+              }
+              return;
+            }
+            
+            const item = parentDir[resolved.name];
+            if (item.type === "dir" && !isRecursive) {
+              outLines.push({ text: `rm: não foi possível remover '${rawPath}': É um diretório`, type: "error" });
+              success = false;
+              return;
+            }
+            
+            const updatedParent = { ...parentDir };
+            delete updatedParent[resolved.name];
+            next[resolved.parentDir] = updatedParent;
+            
+            if (item.type === "dir") {
+              const prefix = resolved.fullPath === "/" ? "/" : resolved.fullPath + "/";
+              Object.keys(next).forEach(k => {
+                if (k === resolved.fullPath || k.startsWith(prefix)) {
+                  delete next[k];
+                }
+              });
+            }
+          });
+          return success ? next : prev;
+        });
+        
+        if (outLines.length > 0) {
+          handleRedirectOrPrint(outLines);
         }
         break;
+      }
+
+      case "rmdir": {
+        const targets = args.filter(arg => !arg.startsWith("-"));
+        if (targets.length === 0) {
+          handleRedirectOrPrint([{ text: "rmdir: falta operando", type: "error" }]);
+          break;
+        }
+        
+        let success = true;
+        const outLines: { text: string; type: "output" | "error" }[] = [];
+        
+        setVirtualFS(prev => {
+          const next = { ...prev };
+          targets.forEach(rawPath => {
+            const resolved = resolveVirtualPath(rawPath);
+            const parentDir = next[resolved.parentDir];
+            if (!parentDir || !parentDir[resolved.name]) {
+              outLines.push({ text: `rmdir: falha ao remover '${rawPath}': Arquivo ou diretório não encontrado`, type: "error" });
+              success = false;
+              return;
+            }
+            const item = parentDir[resolved.name];
+            if (item.type !== "dir") {
+              outLines.push({ text: `rmdir: falha ao remover '${rawPath}': Não é um diretório`, type: "error" });
+              success = false;
+              return;
+            }
+            const dirContents = next[resolved.fullPath] || {};
+            if (Object.keys(dirContents).length > 0) {
+              outLines.push({ text: `rmdir: falha ao remover '${rawPath}': O diretório não está vazio`, type: "error" });
+              success = false;
+              return;
+            }
+            
+            const updatedParent = { ...parentDir };
+            delete updatedParent[resolved.name];
+            next[resolved.parentDir] = updatedParent;
+            delete next[resolved.fullPath];
+          });
+          return success ? next : prev;
+        });
+        
+        if (outLines.length > 0) {
+          handleRedirectOrPrint(outLines);
+        }
+        break;
+      }
+
+      case "grep":
+      case "egrep":
+      case "zgrep": {
+        const optV = args.includes("-v");
+        const optI = args.includes("-i");
+        const optO = args.includes("-o");
+        const optC = args.includes("-c");
+        const optE = args.includes("-E") || cmd === "egrep";
+        const nonFlagArgs = args.filter(arg => !arg.startsWith("-"));
+        
+        if (nonFlagArgs.length < 1) {
+          handleRedirectOrPrint([{ text: "grep: padrão de busca ausente", type: "error" }]);
+          break;
+        }
+        
+        const pattern = nonFlagArgs[0];
+        const files = nonFlagArgs.slice(1);
+        
+        if (files.length === 0) {
+          handleRedirectOrPrint([{ text: "grep: informe o arquivo para busca", type: "error" }]);
+          break;
+        }
+        
+        const outLines: { text: string; type: "output" | "error" }[] = [];
+        const activeDir = virtualFS[currentPath] || {};
+        
+        files.forEach(fileTarget => {
+          const item = activeDir[fileTarget];
+          if (!item) {
+            outLines.push({ text: `grep: ${fileTarget}: Arquivo ou diretório não encontrado`, type: "error" });
+            return;
+          }
+          if (item.type === "dir") {
+            outLines.push({ text: `grep: ${fileTarget}: É um diretório`, type: "error" });
+            return;
+          }
+          
+          let content = item.content || "";
+          if (content.startsWith("__GZIP_TEXT__:")) {
+            content = content.substring("__GZIP_TEXT__:".length);
+          } else if (content.startsWith("__GZIP__:")) {
+            content = "SECRET_ACCESS_KEY=\"KEY_DEC_8891_AURA_SECURE\"";
+          }
+          
+          const fileLines = content.split("\n");
+          let matchCount = 0;
+          
+          let regex: RegExp;
+          try {
+            const flags = optI ? "i" : "";
+            regex = new RegExp(optE ? pattern : pattern.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&'), flags);
+          } catch (e) {
+            outLines.push({ text: `grep: expressão regular inválida: ${pattern}`, type: "error" });
+            return;
+          }
+          
+          fileLines.forEach(l => {
+            const isMatch = regex.test(l);
+            const shouldPrint = optV ? !isMatch : isMatch;
+            
+            if (shouldPrint) {
+              matchCount++;
+              if (!optC) {
+                if (optO && isMatch) {
+                  const matches = l.match(regex);
+                  if (matches) {
+                    matches.forEach(m => outLines.push({ text: m, type: "output" }));
+                  }
+                } else {
+                  outLines.push({ text: l, type: "output" });
+                }
+              }
+            }
+          });
+          
+          if (optC) {
+            outLines.push({ text: String(matchCount), type: "output" });
+          }
+        });
+        
+        handleRedirectOrPrint(outLines);
+        break;
+      }
+
+      case "sed": {
+        const optI = args.includes("-i");
+        const nonFlagArgs = args.filter(arg => !arg.startsWith("-"));
+        
+        if (nonFlagArgs.length < 1) {
+          handleRedirectOrPrint([{ text: "sed: comando ausente", type: "error" }]);
+          break;
+        }
+        
+        const sedCmd = nonFlagArgs[0];
+        const fileTarget = nonFlagArgs[1];
+        
+        if (!fileTarget) {
+          handleRedirectOrPrint([{ text: "sed: arquivo não informado", type: "error" }]);
+          break;
+        }
+        
+        const activeDir = virtualFS[currentPath] || {};
+        const item = activeDir[fileTarget];
+        
+        if (!item) {
+          handleRedirectOrPrint([{ text: `sed: ${fileTarget}: Arquivo ou diretório não encontrado`, type: "error" }]);
+          break;
+        }
+        
+        if (item.type === "dir") {
+          handleRedirectOrPrint([{ text: `sed: ${fileTarget}: É um diretório`, type: "error" }]);
+          break;
+        }
+        
+        const match = sedCmd.match(/^s(.)(.+?)\1(.*)\1([gI]*)$/);
+        if (!match) {
+          handleRedirectOrPrint([{ text: `sed: expressão não suportada: ${sedCmd}`, type: "error" }]);
+          break;
+        }
+        
+        const delimiter = match[1];
+        const pattern = match[2];
+        const replacement = match[3];
+        const flags = match[4];
+        
+        let jsFlags = "";
+        if (flags.includes("g")) jsFlags += "g";
+        if (flags.includes("I")) jsFlags += "i";
+        
+        let regex: RegExp;
+        try {
+          regex = new RegExp(pattern, jsFlags);
+        } catch (e) {
+          handleRedirectOrPrint([{ text: `sed: expressão regular inválida: ${pattern}`, type: "error" }]);
+          break;
+        }
+        
+        const lines = (item.content || "").split("\n");
+        const processedLines = lines.map(line => line.replace(regex, replacement));
+        const newContent = processedLines.join("\n");
+        
+        if (optI) {
+          setVirtualFS(prev => {
+            const nextDir = { ...prev[currentPath] };
+            nextDir[fileTarget] = {
+              ...nextDir[fileTarget],
+              content: newContent
+            };
+            return {
+              ...prev,
+              [currentPath]: nextDir
+            };
+          });
+        } else {
+          handleRedirectOrPrint(processedLines.map(l => ({ text: l, type: "output" })));
+        }
+        break;
+      }
+
+      case "find": {
+        const nonFlagArgs = args.filter(arg => !arg.startsWith("-") && arg !== ";" && arg !== "{}");
+        const nameIdx = args.indexOf("-name");
+        const sizeIdx = args.indexOf("-size");
+        const execIdx = args.indexOf("-exec");
+        
+        const targetDir = nonFlagArgs[0] || ".";
+        const targetName = nameIdx !== -1 ? args[nameIdx + 1] : "";
+        const targetSize = sizeIdx !== -1 ? args[sizeIdx + 1] : "";
+        
+        let execCmd = "";
+        let execArgs: string[] = [];
+        if (execIdx !== -1) {
+          const execSlice = args.slice(execIdx + 1);
+          const semiIdx = execSlice.indexOf(";");
+          const endIdx = semiIdx !== -1 ? semiIdx : execSlice.length;
+          execCmd = execSlice[0];
+          execArgs = execSlice.slice(1, endIdx);
+        }
+        
+        const resolvedBase = getTargetDirectory(cleanHomePath(targetDir));
+        const outLines: { text: string; type: "output" | "error" }[] = [];
+        
+        const matchesName = (filename: string, pattern: string) => {
+          if (!pattern) return true;
+          const escapedPattern = pattern.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&').replace(/\\\*/g, '.*');
+          return new RegExp(`^${escapedPattern}$`).test(filename);
+        };
+        
+        const matchesSize = (contentLength: number, sizeExpr: string) => {
+          if (!sizeExpr) return true;
+          const match = sizeExpr.match(/^([+-]?)(\d+)([kMG]?)$/);
+          if (!match) return true;
+          
+          const sign = match[1];
+          let val = parseInt(match[2], 10);
+          const unit = match[3];
+          
+          if (unit === "k") val *= 1024;
+          if (unit === "M") val *= 1024 * 1024;
+          if (unit === "G") val *= 1024 * 1024 * 1024;
+          
+          if (sign === "+") return contentLength > val;
+          if (sign === "-") return contentLength < val;
+          return contentLength === val;
+        };
+        
+        const matchesList: string[] = [];
+        
+        Object.keys(virtualFS).forEach(dirPath => {
+          if (dirPath === resolvedBase || dirPath.startsWith(resolvedBase === "/" ? "/" : resolvedBase + "/")) {
+            const contents = virtualFS[dirPath] || {};
+            Object.keys(contents).forEach(filename => {
+              const item = contents[filename];
+              const relativePath = (dirPath === "/" ? `/${filename}` : `${dirPath}/${filename}`).replace("//", "/");
+              let relativeToSearch = relativePath;
+              if (targetDir === ".") {
+                relativeToSearch = relativePath.replace(resolvedBase === "/" ? "/" : resolvedBase, ".").replace("//", "/");
+                if (relativeToSearch.startsWith("/.")) relativeToSearch = relativeToSearch.substring(1);
+              }
+              
+              if (matchesName(filename, targetName) && matchesSize((item.content || "").length, targetSize)) {
+                matchesList.push(relativeToSearch);
+              }
+            });
+          }
+        });
+        
+        if (execCmd) {
+          matchesList.forEach(m => {
+            const finalArgs = execArgs.map(arg => arg === "{}" ? m : arg);
+            const cmdLine = `${execCmd} ${finalArgs.join(" ")}`;
+            executeTerminalCommand(cmdLine);
+          });
+        } else {
+          matchesList.forEach(m => outLines.push({ text: m, type: "output" }));
+          handleRedirectOrPrint(outLines);
+        }
+        break;
+      }
+
+      case "tar": {
+        const czfIdx = args.findIndex(arg => arg.includes("c") && arg.includes("z") && arg.includes("f"));
+        const xzfIdx = args.findIndex(arg => arg.includes("x") && arg.includes("z") && arg.includes("f"));
+        const tzfIdx = args.findIndex(arg => arg.includes("t") && arg.includes("z") && arg.includes("f"));
+        const tfIdx = args.findIndex(arg => arg.includes("t") && arg.includes("f"));
+        const cfIdx = args.findIndex(arg => arg.includes("c") && arg.includes("f"));
+        const xfIdx = args.findIndex(arg => arg.includes("x") && arg.includes("f"));
+        
+        const nonFlagArgs = args.filter(arg => !arg.startsWith("-"));
+        
+        if (czfIdx !== -1 || cfIdx !== -1) {
+          if (nonFlagArgs.length < 2) {
+            handleRedirectOrPrint([{ text: "tar: arquivo destino e/ou origem ausentes", type: "error" }]);
+            break;
+          }
+          const tarball = nonFlagArgs[0];
+          const source = nonFlagArgs[1];
+          
+          const resolvedSrc = getTargetDirectory(cleanHomePath(source));
+          const filesToPack: string[] = [];
+          
+          Object.keys(virtualFS).forEach(dirPath => {
+            if (dirPath === resolvedSrc || dirPath.startsWith(resolvedSrc === "/" ? "/" : resolvedSrc + "/")) {
+              const contents = virtualFS[dirPath] || {};
+              Object.keys(contents).forEach(filename => {
+                const item = contents[filename];
+                if (item.type === "file") {
+                  const rel = (dirPath.replace(resolvedSrc, source) + "/" + filename).replace("//", "/");
+                  filesToPack.push(rel);
+                }
+              });
+            }
+          });
+          
+          if (filesToPack.length === 0) {
+            const resolvedSrcInfo = resolveVirtualPath(source);
+            const parent = virtualFS[resolvedSrcInfo.parentDir] || {};
+            if (parent[resolvedSrcInfo.name] && parent[resolvedSrcInfo.name].type === "file") {
+              filesToPack.push(source);
+            } else {
+              handleRedirectOrPrint([{ text: `tar: ${source}: Arquivo ou diretório não encontrado`, type: "error" }]);
+              break;
+            }
+          }
+          
+          const tarballInfo = resolveVirtualPath(tarball);
+          setVirtualFS(prev => {
+            const dirContents = { ...prev[tarballInfo.parentDir] };
+            dirContents[tarballInfo.name] = {
+              name: tarballInfo.name,
+              type: "file",
+              content: `__TAR_GZ__:${filesToPack.join(",")}`,
+              permissions: 644
+            };
+            return {
+              ...prev,
+              [tarballInfo.parentDir]: dirContents
+            };
+          });
+          break;
+        } else if (xzfIdx !== -1 || xfIdx !== -1) {
+          if (nonFlagArgs.length < 1) {
+            handleRedirectOrPrint([{ text: "tar: informe o arquivo a ser extraído", type: "error" }]);
+            break;
+          }
+          const tarball = nonFlagArgs[0];
+          const resolvedTarball = resolveVirtualPath(tarball);
+          const dirObj = virtualFS[resolvedTarball.parentDir] || {};
+          const item = dirObj[resolvedTarball.name];
+          
+          if (!item || !item.content?.startsWith("__TAR_GZ__:")) {
+            handleRedirectOrPrint([{ text: `tar: ${tarball}: Não é um arquivo tar/gzip válido`, type: "error" }]);
+            break;
+          }
+          
+          const files = item.content.substring("__TAR_GZ__:".length).split(",");
+          setVirtualFS(prev => {
+            const next = { ...prev };
+            files.forEach(f => {
+              const filename = os.path.basename(f);
+              const dirContents = { ...next[currentPath] };
+              dirContents[filename] = {
+                name: filename,
+                type: "file",
+                content: `Extraído de ${f}`,
+                permissions: 644
+              };
+              next[currentPath] = dirContents;
+            });
+            return next;
+          });
+          break;
+        } else if (tzfIdx !== -1 || tfIdx !== -1) {
+          if (nonFlagArgs.length < 1) {
+            handleRedirectOrPrint([{ text: "tar: informe o arquivo para listagem", type: "error" }]);
+            break;
+          }
+          const tarball = nonFlagArgs[0];
+          const resolvedTarball = resolveVirtualPath(tarball);
+          const dirObj = virtualFS[resolvedTarball.parentDir] || {};
+          const item = dirObj[resolvedTarball.name];
+          
+          if (!item || !item.content?.startsWith("__TAR_GZ__:")) {
+            handleRedirectOrPrint([{ text: `tar: ${tarball}: Não é um arquivo tar/gzip válido`, type: "error" }]);
+            break;
+          }
+          
+          const files = item.content.substring("__TAR_GZ__:".length).split(",");
+          handleRedirectOrPrint(files.map(f => ({ text: f, type: "output" })));
+          break;
+        }
+        break;
+      }
+
+      case "gzip": {
+        if (args.length === 0) {
+          handleRedirectOrPrint([{ text: "gzip: especifique o arquivo", type: "error" }]);
+          break;
+        }
+        const fileTarget = args[0];
+        const activeDir = virtualFS[currentPath] || {};
+        const item = activeDir[fileTarget];
+        
+        if (!item) {
+          handleRedirectOrPrint([{ text: `gzip: ${fileTarget}: Arquivo ou diretório não encontrado`, type: "error" }]);
+          break;
+        }
+        if (item.type === "dir") {
+          handleRedirectOrPrint([{ text: `gzip: ${fileTarget}: É um diretório`, type: "error" }]);
+          break;
+        }
+        
+        const gzipFilename = `${fileTarget}.gz`;
+        setVirtualFS(prev => {
+          const nextDir = { ...prev[currentPath] };
+          delete nextDir[fileTarget];
+          nextDir[gzipFilename] = {
+            name: gzipFilename,
+            type: "file",
+            content: `__GZIP__:${fileTarget}`,
+            permissions: 644
+          };
+          return {
+            ...prev,
+            [currentPath]: nextDir
+          };
+        });
+        break;
+      }
+
+      case "gunzip": {
+        if (args.length === 0) {
+          handleRedirectOrPrint([{ text: "gunzip: especifique o arquivo", type: "error" }]);
+          break;
+        }
+        const fileTarget = args[0];
+        const activeDir = virtualFS[currentPath] || {};
+        const item = activeDir[fileTarget];
+        
+        if (!item) {
+          handleRedirectOrPrint([{ text: `gunzip: ${fileTarget}: Arquivo ou diretório não encontrado`, type: "error" }]);
+          break;
+        }
+        
+        if (!fileTarget.endsWith(".gz") || !item.content?.startsWith("__GZIP__:")) {
+          handleRedirectOrPrint([{ text: `gunzip: ${fileTarget}: Formato desconhecido`, type: "error" }]);
+          break;
+        }
+        
+        const origFilename = fileTarget.substring(0, fileTarget.length - 3);
+        setVirtualFS(prev => {
+          const nextDir = { ...prev[currentPath] };
+          delete nextDir[fileTarget];
+          nextDir[origFilename] = {
+            name: origFilename,
+            type: "file",
+            content: `Descompactado de ${fileTarget}`,
+            permissions: 644
+          };
+          return {
+            ...prev,
+            [currentPath]: nextDir
+          };
+        });
+        break;
+      }
+
+      case "zcat": {
+        if (args.length === 0) {
+          handleRedirectOrPrint([{ text: "zcat: especifique o arquivo", type: "error" }]);
+          break;
+        }
+        const fileTarget = args[0];
+        const activeDir = virtualFS[currentPath] || {};
+        const item = activeDir[fileTarget];
+        
+        if (!item) {
+          handleRedirectOrPrint([{ text: `zcat: ${fileTarget}: Arquivo ou diretório não encontrado`, type: "error" }]);
+          break;
+        }
+        
+        let content = item.content || "";
+        if (content.startsWith("__GZIP_TEXT__:")) {
+          content = content.substring("__GZIP_TEXT__:".length);
+        } else if (content.startsWith("__GZIP__:")) {
+          content = "SECRET_ACCESS_KEY=\"KEY_DEC_8891_AURA_SECURE\"";
+        }
+        
+        handleRedirectOrPrint(content.split("\n").map(l => ({ text: l, type: "output" })));
+        break;
+      }
+
+      case "sort": {
+        const fileTarget = args.filter(arg => !arg.startsWith("-"))[0];
+        if (!fileTarget) {
+          handleRedirectOrPrint([{ text: "sort: especifique o arquivo", type: "error" }]);
+          break;
+        }
+        const activeDir = virtualFS[currentPath] || {};
+        const item = activeDir[fileTarget];
+        if (!item) {
+          handleRedirectOrPrint([{ text: `sort: ${fileTarget}: Arquivo ou diretório não encontrado`, type: "error" }]);
+          break;
+        }
+        const lines = (item.content || "").split("\n").filter(Boolean);
+        lines.sort();
+        handleRedirectOrPrint(lines.map(l => ({ text: l, type: "output" })));
+        break;
+      }
+
+      case "uniq": {
+        const optC = args.includes("-c");
+        const fileTarget = args.filter(arg => !arg.startsWith("-"))[0];
+        if (!fileTarget) {
+          handleRedirectOrPrint([{ text: "uniq: especifique o arquivo", type: "error" }]);
+          break;
+        }
+        const activeDir = virtualFS[currentPath] || {};
+        const item = activeDir[fileTarget];
+        if (!item) {
+          handleRedirectOrPrint([{ text: `uniq: ${fileTarget}: Arquivo ou diretório não encontrado`, type: "error" }]);
+          break;
+        }
+        const lines = (item.content || "").split("\n").filter(Boolean);
+        const uniqueLines: { text: string; count: number }[] = [];
+        
+        lines.forEach(l => {
+          if (uniqueLines.length === 0 || uniqueLines[uniqueLines.length - 1].text !== l) {
+            uniqueLines.push({ text: l, count: 1 });
+          } else {
+            uniqueLines[uniqueLines.length - 1].count++;
+          }
+        });
+        
+        const out = uniqueLines.map(ul => ({
+          text: optC ? `      ${ul.count} ${ul.text}` : ul.text,
+          type: "output" as const
+        }));
+        handleRedirectOrPrint(out);
+        break;
+      }
+
+      case "cut": {
+        const dIdx = args.indexOf("-d");
+        const fIdx = args.indexOf("-f");
+        const delimiter = dIdx !== -1 ? args[dIdx + 1] : "\t";
+        const fieldsStr = fIdx !== -1 ? args[fIdx + 1] : "1";
+        const fields = fieldsStr.split(",").map(n => parseInt(n, 10) - 1);
+        
+        const fileTarget = args.filter(arg => !arg.startsWith("-") && arg !== delimiter && arg !== fieldsStr)[0];
+        if (!fileTarget) {
+          handleRedirectOrPrint([{ text: "cut: especifique o arquivo", type: "error" }]);
+          break;
+        }
+        
+        const activeDir = virtualFS[currentPath] || {};
+        const item = activeDir[fileTarget];
+        if (!item) {
+          handleRedirectOrPrint([{ text: `cut: ${fileTarget}: Arquivo ou diretório não encontrado`, type: "error" }]);
+          break;
+        }
+        
+        const lines = (item.content || "").split("\n");
+        const out = lines.map(line => {
+          const parts = line.split(delimiter);
+          const cutParts = fields.map(f => parts[f] || "").join(delimiter);
+          return { text: cutParts, type: "output" as const };
+        });
+        handleRedirectOrPrint(out);
+        break;
+      }
+
+      case "awk": {
+        const fIdx = args.indexOf("-F");
+        const delimiter = fIdx !== -1 ? args[fIdx + 1] : " ";
+        const nonFlagArgs = args.filter(arg => !arg.startsWith("-") && arg !== delimiter);
+        
+        if (nonFlagArgs.length < 2) {
+          handleRedirectOrPrint([{ text: "awk: uso incorreto do comando", type: "error" }]);
+          break;
+        }
+        
+        const expression = nonFlagArgs[0];
+        const fileTarget = nonFlagArgs[1];
+        
+        const activeDir = virtualFS[currentPath] || {};
+        const item = activeDir[fileTarget];
+        if (!item) {
+          handleRedirectOrPrint([{ text: `awk: ${fileTarget}: Arquivo ou diretório não encontrado`, type: "error" }]);
+          break;
+        }
+        
+        const printMatch = expression.match(/print\s+(.+)$/);
+        const fields: number[] = [];
+        if (printMatch) {
+          const rawFields = printMatch[1].replace(/[{}]/g, "").split(",");
+          rawFields.forEach(f => {
+            const num = parseInt(f.trim().replace("$", ""), 10);
+            if (!isNaN(num)) fields.push(num - 1);
+          });
+        }
+        
+        const lines = (item.content || "").split("\n");
+        const out = lines.map(line => {
+          const parts = line.split(delimiter);
+          const awkParts = fields.map(f => parts[f] || "").join(" ");
+          return { text: awkParts, type: "output" as const };
+        });
+        handleRedirectOrPrint(out);
+        break;
+      }
+
+      case "stat": {
+        if (args.length === 0) {
+          handleRedirectOrPrint([{ text: "stat: especifique o arquivo", type: "error" }]);
+          break;
+        }
+        const fileTarget = args[0];
+        const activeDir = virtualFS[currentPath] || {};
+        const item = activeDir[fileTarget];
+        
+        if (!item) {
+          handleRedirectOrPrint([{ text: `stat: ${fileTarget}: Arquivo ou diretório não encontrado`, type: "error" }]);
+          break;
+        }
+        
+        const size = (item.content || "").length;
+        const type = item.type === "dir" ? "directory" : "regular file";
+        const perms = item.permissions || (item.type === "dir" ? 755 : 644);
+        
+        handleRedirectOrPrint([
+          { text: `  File: ${fileTarget}`, type: "output" },
+          { text: `  Size: ${size}        Blocks: 8          IO Block: 4096   ${type}`, type: "output" },
+          { text: `Access: (${perms})  Uid: ( 1000/operator)   Gid: ( 1000/operator)`, type: "output" },
+          { text: "Modify: 2023-01-01 12:00:00.000000000 -0300", type: "output" }
+        ]);
+        break;
+      }
+
+      case "dialog": {
+        const msgboxIdx = args.indexOf("--msgbox");
+        const yesnoIdx = args.indexOf("--yesno");
+        const inputboxIdx = args.indexOf("--inputbox");
+        const menuIdx = args.indexOf("--menu");
+        const titleIdx = args.indexOf("--title");
+        const title = titleIdx !== -1 ? args[titleIdx + 1] : "dialog";
+        
+        if (msgboxIdx !== -1) {
+          const text = args[msgboxIdx + 1];
+          const width = parseInt(args[msgboxIdx + 3], 10) || 50;
+          
+          const border = "+".padEnd(width - 1, "-") + "+";
+          const titleLine = `| ${title.toUpperCase()} |`.padStart(Math.floor((width + title.length) / 2), " ").padEnd(width - 1, " ") + "|";
+          const textLine = `| ${text} |`.padStart(Math.floor((width + text.length) / 2), " ").padEnd(width - 1, " ") + "|";
+          const okLine = "| [  OK  ] |".padStart(Math.floor((width + 8) / 2), " ").padEnd(width - 1, " ") + "|";
+          
+          handleRedirectOrPrint([
+            { text: border, type: "output" },
+            { text: titleLine, type: "output" },
+            { text: "|".padEnd(width - 1, " ") + "|", type: "output" },
+            { text: textLine, type: "output" },
+            { text: "|".padEnd(width - 1, " ") + "|", type: "output" },
+            { text: okLine, type: "output" },
+            { text: border, type: "output" }
+          ]);
+        } else if (yesnoIdx !== -1) {
+          const text = args[yesnoIdx + 1];
+          const width = parseInt(args[yesnoIdx + 3], 10) || 50;
+          
+          const border = "+".padEnd(width - 1, "-") + "+";
+          const textLine = `| ${text} |`.padStart(Math.floor((width + text.length) / 2), " ").padEnd(width - 1, " ") + "|";
+          const btnLine = "|  < Sim >    < Não >  |".padStart(Math.floor((width + 22) / 2), " ").padEnd(width - 1, " ") + "|";
+          
+          handleRedirectOrPrint([
+            { text: border, type: "output" },
+            { text: textLine, type: "output" },
+            { text: "|".padEnd(width - 1, " ") + "|", type: "output" },
+            { text: btnLine, type: "output" },
+            { text: border, type: "output" }
+          ]);
+        } else if (inputboxIdx !== -1) {
+          const text = args[inputboxIdx + 1];
+          const width = parseInt(args[inputboxIdx + 3], 10) || 50;
+          
+          const border = "+".padEnd(width - 1, "-") + "+";
+          const textLine = `| ${text} |`.padStart(Math.floor((width + text.length) / 2), " ").padEnd(width - 1, " ") + "|";
+          const inputLine = "| [__________________________] |".padStart(Math.floor((width + 30) / 2), " ").padEnd(width - 1, " ") + "|";
+          
+          handleRedirectOrPrint([
+            { text: border, type: "output" },
+            { text: textLine, type: "output" },
+            { text: "|".padEnd(width - 1, " ") + "|", type: "output" },
+            { text: inputLine, type: "output" },
+            { text: border, type: "output" }
+          ]);
+        } else if (menuIdx !== -1) {
+          const text = args[menuIdx + 1];
+          const width = parseInt(args[menuIdx + 3], 10) || 50;
+          
+          const border = "+".padEnd(width - 1, "-") + "+";
+          handleRedirectOrPrint([
+            { text: border, type: "output" },
+            { text: `| ${text} |`, type: "output" },
+            { text: "| 1. Iniciar Diagnóstico |", type: "output" },
+            { text: "| 2. Visualizar Logs     |", type: "output" },
+            { text: border, type: "output" }
+          ]);
+        }
+        break;
+      }
+
+      case "df": {
+        handleRedirectOrPrint([
+          { text: "Filesystem      Size  Used Avail Use% Mounted on", type: "output" },
+          { text: "/dev/sda1        50G   12G   38G  24% /", type: "output" },
+          { text: "tmpfs           2.0G     0  2.0G   0% /dev/shm", type: "output" }
+        ]);
+        break;
+      }
+
+      case "free": {
+        handleRedirectOrPrint([
+          { text: "              total        used        free      shared  buff/cache   available", type: "output" },
+          { text: "Mem:        2048000      782100     1265900           0      300000     1100000", type: "output" },
+          { text: "Swap:       1024000           0     1024000", type: "output" }
+        ]);
+        break;
+      }
+
+      case "uptime": {
+        handleRedirectOrPrint([{ text: " 19:35:00 up 2:44,  1 user,  load average: 0.12, 0.08, 0.05", type: "output" }]);
+        break;
+      }
+
+      case "ip":
+      case "ifconfig": {
+        handleRedirectOrPrint([
+          { text: "eth0: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500", type: "output" },
+          { text: "        inet 10.0.0.15  netmask 255.255.255.0  broadcast 10.0.0.255", type: "output" },
+          { text: "        ether 02:42:0a:00:00:0f  txqueuelen 1000  (Ethernet)", type: "output" }
+        ]);
+        break;
+      }
+
+      case "env":
+      case "printenv": {
+        handleRedirectOrPrint([
+          { text: "USER=operator", type: "output" },
+          { text: "HOME=/home/operator", type: "output" },
+          { text: "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin", type: "output" },
+          { text: "SHELL=/bin/bash", type: "output" },
+          { text: "COMPARTIMENTO=Beta-4", type: "output" }
+        ]);
+        break;
+      }
+
+      case "pgrep": {
+        const procName = args[0];
+        if (procName === "spyware.sh") {
+          handleRedirectOrPrint([{ text: "1337", type: "output" }]);
+        } else {
+          handleRedirectOrPrint([]);
+        }
+        break;
+      }
+
+      case "sleep": {
+        break;
+      }
+
+      case "flock": {
+        const cIdx = args.indexOf("-c");
+        if (cIdx !== -1 && cIdx + 1 < args.length) {
+          const commandToRun = args.slice(cIdx + 1).join(" ").replace(/^["']|["']$/g, "");
+          executeTerminalCommand(commandToRun);
+        }
+        break;
+      }
+
+      case "vim": {
+        if (args.length === 0) {
+          handleRedirectOrPrint([{ text: "vim: especifique o arquivo que deseja abrir e editar.", type: "error" }]);
+          break;
+        }
+        const vimFile = args[0];
+        const dirObj = virtualFS[currentPath] || {};
+        let fileToEdit = dirObj[vimFile];
+
+        if (!fileToEdit) {
+          const newFile: FSItem = {
+            name: vimFile,
+            type: "file",
+            content: "",
+            permissions: 644
+          };
+          setVirtualFS(prev => ({
+            ...prev,
+            [currentPath]: {
+              ...prev[currentPath],
+              [vimFile]: newFile
+            }
+          }));
+          setEditingFile({ path: currentPath, name: vimFile });
+          setNanoContent("");
+        } else {
+          setEditingFile({ path: currentPath, name: vimFile });
+          setNanoContent(fileToEdit.content || "");
+        }
+        triggerBeep(350, 0.1, "sine");
+        break;
+      }
 
       default:
         // Typo simulation or command not found

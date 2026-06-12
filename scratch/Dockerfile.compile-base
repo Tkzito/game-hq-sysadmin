@@ -1,0 +1,12 @@
+FROM alpine:3.18
+
+RUN apk add --no-cache bash coreutils findutils grep sed mawk nano vim tar gzip shadow
+
+# Create operator group and make operator user's primary group operator
+RUN getent group operator || addgroup -g 1000 operator && \
+    usermod -g operator operator
+
+WORKDIR /home/operator
+USER operator
+
+CMD ["/bin/bash"]
