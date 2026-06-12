@@ -17,5 +17,8 @@ services:
     build:
       context: .
     container_name: game-web
-    network_mode: "host"
+    ports:
+      - "8085:3000"
+    environment:
+      - ORCHESTRATOR_URL=http://orchestrator:8000
     restart: always
