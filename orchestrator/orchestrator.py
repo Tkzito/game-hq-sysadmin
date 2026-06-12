@@ -52,7 +52,7 @@ def start_level():
     # Check if image exists, otherwise build it
     rc, stdout, _ = run_command(f"docker images -q {image_name}")
     if not stdout:
-        rc, _, stderr = run_command(f"docker build -t {image_name} \"{path}\"")
+        rc, _, stderr = run_command(f"docker build -t {image_name} \"{path}\"", timeout=180)
         if rc != 0:
             return jsonify({"success": False, "error": f"Erro ao compilar imagem: {stderr}"})
 
@@ -97,7 +97,7 @@ def validate_level():
     # Check if image exists, otherwise build it
     rc, stdout, _ = run_command(f"docker images -q {image_name}")
     if not stdout:
-        rc, _, stderr = run_command(f"docker build -t {image_name} \"{path}\"")
+        rc, _, stderr = run_command(f"docker build -t {image_name} \"{path}\"", timeout=180)
         if rc != 0:
             return jsonify({"success": False, "message": f"Erro ao compilar imagem do container: {stderr}"})
             
@@ -308,5 +308,174 @@ def validate_level():
         # Clean up immediately after verification
         run_command(f"docker rm -f {container_name}")
 
+import sys
+
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=8000)
+    if len(sys.argv) > 1:
+        # Running in CLI mode
+        cmd = sys.argv[1]
+        
+        # Support both integer levels (e.g. 171) or string IDs (e.g. m9_l171)
+        level_arg = sys.argv[2] if len(sys.argv) > 2 else ""
+        
+        # Convert integer to string ID if needed
+        def get_level_id_from_int(val_str):
+            if not val_str.isdigit():
+                return val_str
+            val = int(val_str)
+            if val <= 100:
+                sub = (val - 1) // 10 + 1
+                lvl = (val - 1) % 10 + 1
+                return f"m1_s{sub}_l{lvl}"
+            elif val <= 110:
+                return f"m2_l{val}"
+            elif val <= 120:
+                return f"m3_l{val}"
+            elif val <= 130:
+                return f"m4_l{val}"
+            elif val <= 140:
+                return f"m5_l{val}"
+            elif val <= 150:
+                return f"m6_l{val}"
+            elif val <= 160:
+                return f"m7_l{val}"
+            elif val <= 170:
+                return f"m8_l{val}"
+            elif val <= 180:
+                return f"m9_l{val}"
+            elif val <= 190:
+                return f"m10_l{val}"
+            elif val <= 200:
+                return f"m11_l{val}"
+            elif val <= 210:
+                return f"m12_l{val}"
+            elif val <= 220:
+                return f"m13_l{val}"
+            elif val <= 230:
+                return f"m14_l{val}"
+            return val_str
+
+        level_id = get_level_id_from_int(level_arg) if level_arg else ""
+        path = get_level_path(level_id) if level_id else None
+        
+        container_name = "game-active-sandbox"
+        
+        if cmd == "build":
+            if not path or not os.path.exists(path):
+                print(f"Erro: Nível {level_arg} não encontrado.")
+                sys.exit(1)
+            parts = level_id.split('_')
+            if len(parts) == 3:
+                image_name = f"gamehq/levels_modulo{parts[0][1:]}_sub{parts[1][1:]}_level{parts[2][1:]}:latest"
+            else:
+                image_name = f"gamehq/levels_modulo{parts[0][1:]}_level{parts[1][1:]}:latest"
+            
+            print(f"Compilando imagem {image_name}...")
+            rc, stdout, stderr = run_command(f"docker build -t {image_name} \"{path}\"", timeout=180)
+            if rc != 0:
+                print(f"Erro ao compilar: {stderr}")
+                sys.exit(1)
+            print("Imagem compilada com sucesso.")
+            sys.exit(0)
+            
+        elif cmd == "start":
+            if not path or not os.path.exists(path):
+                print(f"Erro: Nível {level_arg} não encontrado.")
+                sys.exit(1)
+            parts = level_id.split('_')
+            if len(parts) == 3:
+                image_name = f"gamehq/levels_modulo{parts[0][1:]}_sub{parts[1][1:]}_level{parts[2][1:]}:latest"
+            else:
+                image_name = f"gamehq/levels_modulo{parts[0][1:]}_level{parts[1][1:]}:latest"
+            
+            # Check if image exists, otherwise build it
+            rc, stdout, _ = run_command(f"docker images -q {image_name}")
+            if not stdout:
+                print(f"Imagem não encontrada. Compilando...")
+                rc, _, stderr = run_command(f"docker build -t {image_name} \"{path}\"", timeout=180)
+                if rc != 0:
+                    print(f"Erro ao compilar imagem: {stderr}")
+                    sys.exit(1)
+            
+            # Stop any previous sandbox
+            run_command(f"docker rm -f {container_name}")
+            
+            # Run container
+            rc, _, stderr = run_command(f"docker run -d -t --name {container_name} --cpus=0.5 --memory=256m {image_name}")
+            if rc != 0:
+                print(f"Erro ao iniciar container: {stderr}")
+                sys.exit(1)
+                
+            # Run setup.sh if exists
+            setup_path = os.path.join(path, "setup.sh")
+            if os.path.exists(setup_path):
+                rc, _, stderr = run_command(f"docker cp \"{setup_path}\" {container_name}:/setup.sh")
+                if rc == 0:
+                    run_command(f"docker exec -u root {container_name} chmod +x /setup.sh")
+                    rc, _, stderr = run_command(f"docker exec -u root {container_name} /setup.sh")
+            
+            run_command(f"docker exec -u root {container_name} chown -R operator:operator /home/operator")
+            print(f"Nível {level_arg} montado e ativo.")
+            sys.exit(0)
+            
+        elif cmd == "stop":
+            print("Encerrando container sandbox...")
+            run_command(f"docker rm -f {container_name}")
+            print("Container encerrado.")
+            sys.exit(0)
+            
+        elif cmd == "check":
+            if not path or not os.path.exists(path):
+                print(f"Erro: Nível {level_arg} não encontrado.")
+                sys.exit(1)
+                
+            # Copy validator.sh and execute it
+            validator_path = os.path.join(path, "validator.sh")
+            if not os.path.exists(validator_path):
+                print("Erro: Nível não possui validador.")
+                sys.exit(1)
+                
+            rc, _, stderr = run_command(f"docker cp \"{validator_path}\" {container_name}:/validator.sh")
+            if rc != 0:
+                print(f"Erro ao copiar validador: {stderr}")
+                sys.exit(1)
+                
+            run_command(f"docker exec -u root {container_name} chmod +x /validator.sh")
+            val_rc, val_stdout, val_stderr = run_command(f"docker exec -u operator {container_name} bash /validator.sh", timeout=12)
+            
+            if val_rc == 0:
+                print("DESAFIO CONCLUÍDO COM SUCESSO")
+                if val_stdout:
+                    print(val_stdout)
+                sys.exit(0)
+            else:
+                print("FALHA NA VALIDAÇÃO")
+                if val_stdout:
+                    print(val_stdout)
+                if val_stderr:
+                    print(val_stderr)
+                sys.exit(1)
+                
+        elif cmd == "hint":
+            if not path or not os.path.exists(path):
+                print(f"Erro: Nível {level_arg} não encontrado.")
+                sys.exit(1)
+            briefing_file = os.path.join(path, "briefing.md")
+            if os.path.exists(briefing_file):
+                with open(briefing_file, "r", encoding="utf-8") as f:
+                    content = f.read()
+                print(content)
+            else:
+                print("Nenhuma dica disponível para este nível.")
+            sys.exit(0)
+            
+        elif cmd == "shell":
+            os.system(f"docker exec -it -u operator {container_name} bash")
+            sys.exit(0)
+            
+        else:
+            print(f"Comando desconhecido: {cmd}")
+            sys.exit(1)
+    else:
+        # Running in HTTP server mode (Flask)
+        app.run(host='0.0.0.0', port=8000)

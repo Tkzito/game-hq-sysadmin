@@ -35,6 +35,130 @@ import TerminalView from "./components/TerminalView";
 
 import { SaveState, VirtualFS, TerminalLine, ChatMessage, FSItem } from "./types";
 
+const translations = {
+  pt: {
+    operatorBunker: "Operador Bunker",
+    credits: "R$ Créditos",
+    systemClock: "SYSTEM CLOCK",
+    neuralConfig: "Configurações neurais da AURA-7",
+    auraTitle: "AURA-7 Assistant",
+    soundToggle: "Alternar áudio de feedback",
+    processing: "AURA-7 processando fluxo de rede tática...",
+    loginTitle: "ROOT ACCESS: DevOps",
+    loginBooting: "INICIALIZANDO SISTEMA...",
+    loginSeq: "> SEQUÊNCIA DE INICIALIZAÇÃO DO SISTEMA",
+    loginAuraDegraded: "AURA-7 Core Assistente está operando com apenas 35% de integridade neuronal.",
+    loginRegister: "Para restabelecer comunicações encriptadas locais, faça o registro do Operador de Bunker:",
+    loginLabel: "Nome do Operador / Usuário Unix:",
+    loginBtn: "REGISTRAR E MONTAR CONEXÃO",
+    settingsTitle: "CONFIGURAÇÕES NEURAIS DA AURA-7",
+    settingsMode: "Modo Offline Simulado:",
+    settingsOfflineDesc: "A AURA-7 utilizará respostas e dicas pré-definidas baseadas nas diretrizes locais de cada nível. Não requer chaves de nuvem ou execução de hardware de IA local.",
+    settingsOnline: "Modo Online Gemini API (Nuvem):",
+    settingsOnlineDesc: "Ativa o canal de inferência neural direto conectando à API do Google Cloud Gemini.",
+    settingsKeyLabel: "Insira sua Gemini API Key:",
+    settingsModelLabel: "Selecione o Modelo Generativo:",
+    settingsSave: "SALVAR E RECONFIGURAR NÚCLEO",
+    settingsClose: "FECHAR PAINEL NEURAL",
+    jobBoard: "PAINEL DE CONTRATOS",
+    activeJob: "CONTRATO ATIVO",
+    noJob: "NENHUM CONTRATO ATIVO",
+    jobDesc: "Descrição do Contrato:",
+    jobInstructions: "Instruções do terminal para concluir o contrato:",
+    jobCheckBtn: "VERIFICAR CONTRATO (VALIDAR)",
+    jobReward: "Pagamento:",
+    hintBtn: "OBTER DICA DA IA",
+    tabTerminal: "Terminal",
+    tabContracts: "Contratos",
+    tabManual: "Manual",
+    editorTitle: "NANO EDITOR - Editando:",
+    editorSave: "SALVAR",
+    editorCancel: "CANCELAR",
+    editorEmpty: "Selecione ou crie um arquivo no terminal para editar.",
+    terminalIntro: "Digite 'briefing' para rever as metas ou use 'ajuda' para listar comandos.",
+    systemSynchronized: "AURA-7 Core Sincronizado: {integrity}% Integridade Neural.",
+    commandNotRecognized: "bunker-shell: {cmd}: comando não reconhecido. Digite 'ajuda' para verificar as instruções.",
+    manualTitle: "Manual de Operador Unix - Comandos Disponíveis:"
+  },
+  en: {
+    operatorBunker: "Bunker Operator",
+    credits: "$ Credits",
+    systemClock: "SYSTEM CLOCK",
+    neuralConfig: "AURA-7 Neural Configuration",
+    auraTitle: "AURA-7 Assistant",
+    soundToggle: "Toggle feedback audio",
+    processing: "AURA-7 processing tactical network stream...",
+    loginTitle: "ROOT ACCESS: DevOps",
+    loginBooting: "INITIALIZING SYSTEM...",
+    loginSeq: "> SYSTEM INITIALIZATION SEQUENCE",
+    loginAuraDegraded: "AURA-7 Core Assistant is operating with only 35% neural integrity.",
+    loginRegister: "To re-establish encrypted local communications, register the Bunker Operator:",
+    loginLabel: "Operator Name / Unix User:",
+    loginBtn: "REGISTER AND MOUNT CONNECTION",
+    settingsTitle: "AURA-7 NEURAL CONFIGURATION",
+    settingsMode: "Simulated Offline Mode:",
+    settingsOfflineDesc: "AURA-7 will use pre-defined responses and hints based on the local guidelines of each level. Does not require cloud keys or local AI hardware execution.",
+    settingsOnline: "Gemini API Online Mode (Cloud):",
+    settingsOnlineDesc: "Activates the direct neural inference channel by connecting to the Google Cloud Gemini API.",
+    settingsKeyLabel: "Enter your Gemini API Key:",
+    settingsModelLabel: "Select Generative Model:",
+    settingsSave: "SAVE AND RECONFIGURE CORE",
+    settingsClose: "CLOSE NEURAL PANEL",
+    jobBoard: "CONTRACT BOARD",
+    activeJob: "ACTIVE CONTRACT",
+    noJob: "NO ACTIVE CONTRACT",
+    jobDesc: "Contract Description:",
+    jobInstructions: "Terminal instructions to complete contract:",
+    jobCheckBtn: "VERIFY CONTRACT (VALIDATE)",
+    jobReward: "Payment:",
+    hintBtn: "GET IA HINT",
+    tabTerminal: "Terminal",
+    tabContracts: "Contracts",
+    tabManual: "Manual",
+    editorTitle: "NANO EDITOR - Editing:",
+    editorSave: "SAVE",
+    editorCancel: "CANCEL",
+    editorEmpty: "Select or create a file in the terminal to edit.",
+    terminalIntro: "Type 'briefing' to review goals or 'ajuda' (or 'help') to list commands.",
+    systemSynchronized: "AURA-7 Core Synchronized: {integrity}% Neural Integrity.",
+    commandNotRecognized: "bunker-shell: {cmd}: command not recognized. Type 'ajuda' (or 'help') to check the instructions.",
+    manualTitle: "Unix Operator Manual - Available Commands:"
+  }
+};
+
+const levelTranslations: Record<string, { name: string; briefing: string; hint?: string }> = {
+  m1_s1_l1: {
+    name: "System Booting",
+    briefing: "Welcome to AURA-7 recovery process. Create the base configuration file 'bunker.cfg' in your home directory.",
+    hint: "Use 'touch bunker.cfg'"
+  },
+  m1_s1_l2: {
+    name: "Operator Registration",
+    briefing: "Write your operator code into 'bunker.cfg' by appending the line 'OPERATOR_ID=1337'.",
+    hint: "Use 'echo \"OPERATOR_ID=1337\" >> bunker.cfg'"
+  },
+  m1_s1_l3: {
+    name: "System Verification",
+    briefing: "Read the content of 'bunker.cfg' using the output system command to verify its integrity.",
+    hint: "Use 'cat bunker.cfg'"
+  },
+  m1_s1_l4: {
+    name: "Manual Mode",
+    briefing: "Verify the technical manual instructions. Check the content of the hidden file '.manual_tecnico.txt'.",
+    hint: "Use 'cat .manual_tecnico.txt' or 'ls -la' to see hidden files."
+  },
+  m1_s1_l5: {
+    name: "Directory Navigation",
+    briefing: "The system core configs are located in '/etc'. List all files under '/etc' to find the system config.",
+    hint: "Use 'ls /etc'"
+  },
+  m9_l171: {
+    name: "Nginx as a Web Server",
+    briefing: "Configure Nginx to serve the static landing page for the fintech company on the default port.",
+    hint: "Edit the configuration in /etc/nginx/nginx.conf and start Nginx using systemctl start nginx."
+  }
+};
+
 // Helper for vintage retro sounds
 function playAudioTone(freq: number, duration: number, type: "sine" | "square" | "sawtooth" = "sine", volume = 0.05) {
   try {
@@ -151,7 +275,32 @@ export default function App() {
     }
   }, [saveState.llmConfig, settingsOpen]);
 
-  const currentChallenge = CHALLENGES.find(c => c.id === saveState.currentLevelId) || CHALLENGES[0];
+  // i18n support
+  const [lang, setLang] = useState<"pt" | "en">("pt");
+
+  const localizedChallenges = CHALLENGES.map(lvl => {
+    if (lang === "en" && levelTranslations[lvl.id]) {
+      return {
+        ...lvl,
+        name: levelTranslations[lvl.id].name,
+        briefing: levelTranslations[lvl.id].briefing,
+        hint: levelTranslations[lvl.id].hint || lvl.hint
+      };
+    }
+    return lvl;
+  });
+
+  const t = (key: keyof typeof translations["pt"], params?: Record<string, string | number>) => {
+    let str = translations[lang]?.[key] || translations["pt"]?.[key] || "";
+    if (params) {
+      Object.entries(params).forEach(([k, v]) => {
+        str = str.replace(`{${k}}`, String(v));
+      });
+    }
+    return str;
+  };
+
+  const currentChallenge = localizedChallenges.find(c => c.id === saveState.currentLevelId) || localizedChallenges[0];
 
   // Virtual Filesystem State - initialized from the current challenge config
   const [virtualFS, setVirtualFS] = useState<VirtualFS>({});
@@ -368,8 +517,8 @@ export default function App() {
       const newIntegrity = Math.min(100, saveState.auraIntegrity + 10);
       const isAlreadyCompleted = saveState.completedLevels.includes(currentChallenge.id);
       const updatedCredits = isAlreadyCompleted ? saveState.credits : saveState.credits + currentChallenge.salary;
-      const nextLevelIndex = CHALLENGES.findIndex(c => c.id === currentChallenge.id) + 1;
-      const nextLevelId = nextLevelIndex < CHALLENGES.length ? CHALLENGES[nextLevelIndex].id : currentChallenge.id;
+      const nextLevelIndex = localizedChallenges.findIndex(c => c.id === currentChallenge.id) + 1;
+      const nextLevelId = nextLevelIndex < localizedChallenges.length ? localizedChallenges[nextLevelIndex].id : currentChallenge.id;
       
       setFeedbackMsg({
          text: check.message || "Fase superada com sucesso!",
@@ -3391,6 +3540,20 @@ export default function App() {
               <p className="font-mono text-[11px] text-[#00d4ff]">{systime}</p>
             </div>
             
+            {/* Language toggle button */}
+            <button 
+              onClick={() => { 
+                const nextLang = lang === "pt" ? "en" : "pt"; 
+                setLang(nextLang); 
+                triggerBeep(440, 0.08, "sine"); 
+              }}
+              className="px-1.5 py-0.5 border border-[#00ff41]/40 rounded hover:border-[#00ff41] font-mono text-[9px] font-bold text-[#00ff41] hover:bg-[#00ff41]/10 flex items-center justify-center min-w-[32px] h-6 cursor-pointer"
+              title={lang === "pt" ? "Switch to English" : "Mudar para Português"}
+              id="lang-toggle-btn"
+            >
+              {lang.toUpperCase()}
+            </button>
+
             {/* Sound synthesizer toggle switch */}
             <button 
               onClick={() => { setSoundOn(!soundOn); triggerBeep(440, 0.08, "sine"); }}
@@ -3496,7 +3659,7 @@ export default function App() {
               </div>
 
               <div className="flex-1 overflow-y-auto space-y-2 max-h-56 custom-scrollbar pr-1">
-                {CHALLENGES.map((lvl) => {
+                {localizedChallenges.map((lvl) => {
                   const isActive = lvl.id === saveState.currentLevelId;
                   const isCompleted = saveState.completedLevels.includes(lvl.id);
                   return (
