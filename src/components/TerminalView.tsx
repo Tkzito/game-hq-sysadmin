@@ -3,6 +3,7 @@ import { SaveState, TerminalLine } from "../types";
 import NanoEditor from "./NanoEditor";
 
 type Props = {
+  lang: "pt" | "en";
   terminalLines: TerminalLine[];
   terminalBottomRef: React.RefObject<HTMLDivElement>;
   terminalInput: string;
@@ -22,6 +23,7 @@ type Props = {
 };
 
 export default function TerminalView({
+  lang,
   terminalLines,
   terminalBottomRef,
   terminalInput,
@@ -73,7 +75,7 @@ export default function TerminalView({
           <span className="text-[10px] tracking-widest font-bold text-[#00ff41] uppercase">tty1 - bash (Bunker Shell Sandbox)</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="text-[9px] text-[#00d4ff] uppercase">PASTA: {currentPath}</div>
+          <div className="text-[9px] text-[#00d4ff] uppercase">{lang === "pt" ? "PASTA" : "DIR"}: {currentPath}</div>
           <div className="flex gap-1">
             <div className="w-2 h-2 rounded-full bg-red-500"></div>
             <div className="w-2 h-2 rounded-full bg-yellow-400"></div>
@@ -81,11 +83,11 @@ export default function TerminalView({
           </div>
         <button
           onClick={copyTerminal}
-          title="Copiar histórico do terminal"
+          title={lang === "pt" ? "Copiar histórico do terminal" : "Copy terminal history"}
           className="ml-3 text-[11px] bg-[#00ff41]/10 hover:bg-[#00ff41]/20 px-2 py-1 rounded text-[#00ff41]"
           id="copy-terminal-history-button"
         >
-          Copiar
+          {lang === "pt" ? "Copiar" : "Copy"}
         </button>
       </div>
       </div>
@@ -130,7 +132,7 @@ export default function TerminalView({
           onFocus={() => setTerminalFocus(true)}
           onBlur={() => setTerminalFocus(false)}
           className="flex-1 bg-transparent text-[#00ff41] text-xs font-mono border-none outline-none focus:ring-0 p-0 ml-1"
-          placeholder="digite comandos aqui..."
+          placeholder={lang === "pt" ? "digite comandos aqui..." : "type commands here..."}
           autoFocus
           id="terminal-command-input-element"
         />
@@ -139,6 +141,7 @@ export default function TerminalView({
 
       {editingFile && (
         <NanoEditor
+          lang={lang}
           editingFile={editingFile}
           nanoContent={nanoContent}
           setNanoContent={setNanoContent}

@@ -35,129 +35,7 @@ import TerminalView from "./components/TerminalView";
 
 import { SaveState, VirtualFS, TerminalLine, ChatMessage, FSItem } from "./types";
 
-const translations = {
-  pt: {
-    operatorBunker: "Operador Bunker",
-    credits: "R$ Créditos",
-    systemClock: "SYSTEM CLOCK",
-    neuralConfig: "Configurações neurais da AURA-7",
-    auraTitle: "AURA-7 Assistant",
-    soundToggle: "Alternar áudio de feedback",
-    processing: "AURA-7 processando fluxo de rede tática...",
-    loginTitle: "ROOT ACCESS: DevOps",
-    loginBooting: "INICIALIZANDO SISTEMA...",
-    loginSeq: "> SEQUÊNCIA DE INICIALIZAÇÃO DO SISTEMA",
-    loginAuraDegraded: "AURA-7 Core Assistente está operando com apenas 35% de integridade neuronal.",
-    loginRegister: "Para restabelecer comunicações encriptadas locais, faça o registro do Operador de Bunker:",
-    loginLabel: "Nome do Operador / Usuário Unix:",
-    loginBtn: "REGISTRAR E MONTAR CONEXÃO",
-    settingsTitle: "CONFIGURAÇÕES NEURAIS DA AURA-7",
-    settingsMode: "Modo Offline Simulado:",
-    settingsOfflineDesc: "A AURA-7 utilizará respostas e dicas pré-definidas baseadas nas diretrizes locais de cada nível. Não requer chaves de nuvem ou execução de hardware de IA local.",
-    settingsOnline: "Modo Online Gemini API (Nuvem):",
-    settingsOnlineDesc: "Ativa o canal de inferência neural direto conectando à API do Google Cloud Gemini.",
-    settingsKeyLabel: "Insira sua Gemini API Key:",
-    settingsModelLabel: "Selecione o Modelo Generativo:",
-    settingsSave: "SALVAR E RECONFIGURAR NÚCLEO",
-    settingsClose: "FECHAR PAINEL NEURAL",
-    jobBoard: "PAINEL DE CONTRATOS",
-    activeJob: "CONTRATO ATIVO",
-    noJob: "NENHUM CONTRATO ATIVO",
-    jobDesc: "Descrição do Contrato:",
-    jobInstructions: "Instruções do terminal para concluir o contrato:",
-    jobCheckBtn: "VERIFICAR CONTRATO (VALIDAR)",
-    jobReward: "Pagamento:",
-    hintBtn: "OBTER DICA DA IA",
-    tabTerminal: "Terminal",
-    tabContracts: "Contratos",
-    tabManual: "Manual",
-    editorTitle: "NANO EDITOR - Editando:",
-    editorSave: "SALVAR",
-    editorCancel: "CANCELAR",
-    editorEmpty: "Selecione ou crie um arquivo no terminal para editar.",
-    terminalIntro: "Digite 'briefing' para rever as metas ou use 'ajuda' para listar comandos.",
-    systemSynchronized: "AURA-7 Core Sincronizado: {integrity}% Integridade Neural.",
-    commandNotRecognized: "bunker-shell: {cmd}: comando não reconhecido. Digite 'ajuda' para verificar as instruções.",
-    manualTitle: "Manual de Operador Unix - Comandos Disponíveis:"
-  },
-  en: {
-    operatorBunker: "Bunker Operator",
-    credits: "$ Credits",
-    systemClock: "SYSTEM CLOCK",
-    neuralConfig: "AURA-7 Neural Configuration",
-    auraTitle: "AURA-7 Assistant",
-    soundToggle: "Toggle feedback audio",
-    processing: "AURA-7 processing tactical network stream...",
-    loginTitle: "ROOT ACCESS: DevOps",
-    loginBooting: "INITIALIZING SYSTEM...",
-    loginSeq: "> SYSTEM INITIALIZATION SEQUENCE",
-    loginAuraDegraded: "AURA-7 Core Assistant is operating with only 35% neural integrity.",
-    loginRegister: "To re-establish encrypted local communications, register the Bunker Operator:",
-    loginLabel: "Operator Name / Unix User:",
-    loginBtn: "REGISTER AND MOUNT CONNECTION",
-    settingsTitle: "AURA-7 NEURAL CONFIGURATION",
-    settingsMode: "Simulated Offline Mode:",
-    settingsOfflineDesc: "AURA-7 will use pre-defined responses and hints based on the local guidelines of each level. Does not require cloud keys or local AI hardware execution.",
-    settingsOnline: "Gemini API Online Mode (Cloud):",
-    settingsOnlineDesc: "Activates the direct neural inference channel by connecting to the Google Cloud Gemini API.",
-    settingsKeyLabel: "Enter your Gemini API Key:",
-    settingsModelLabel: "Select Generative Model:",
-    settingsSave: "SAVE AND RECONFIGURE CORE",
-    settingsClose: "CLOSE NEURAL PANEL",
-    jobBoard: "CONTRACT BOARD",
-    activeJob: "ACTIVE CONTRACT",
-    noJob: "NO ACTIVE CONTRACT",
-    jobDesc: "Contract Description:",
-    jobInstructions: "Terminal instructions to complete contract:",
-    jobCheckBtn: "VERIFY CONTRACT (VALIDATE)",
-    jobReward: "Payment:",
-    hintBtn: "GET IA HINT",
-    tabTerminal: "Terminal",
-    tabContracts: "Contracts",
-    tabManual: "Manual",
-    editorTitle: "NANO EDITOR - Editing:",
-    editorSave: "SAVE",
-    editorCancel: "CANCEL",
-    editorEmpty: "Select or create a file in the terminal to edit.",
-    terminalIntro: "Type 'briefing' to review goals or 'ajuda' (or 'help') to list commands.",
-    systemSynchronized: "AURA-7 Core Synchronized: {integrity}% Neural Integrity.",
-    commandNotRecognized: "bunker-shell: {cmd}: command not recognized. Type 'ajuda' (or 'help') to check the instructions.",
-    manualTitle: "Unix Operator Manual - Available Commands:"
-  }
-};
-
-const levelTranslations: Record<string, { name: string; briefing: string; hint?: string }> = {
-  m1_s1_l1: {
-    name: "System Booting",
-    briefing: "Welcome to AURA-7 recovery process. Create the base configuration file 'bunker.cfg' in your home directory.",
-    hint: "Use 'touch bunker.cfg'"
-  },
-  m1_s1_l2: {
-    name: "Operator Registration",
-    briefing: "Write your operator code into 'bunker.cfg' by appending the line 'OPERATOR_ID=1337'.",
-    hint: "Use 'echo \"OPERATOR_ID=1337\" >> bunker.cfg'"
-  },
-  m1_s1_l3: {
-    name: "System Verification",
-    briefing: "Read the content of 'bunker.cfg' using the output system command to verify its integrity.",
-    hint: "Use 'cat bunker.cfg'"
-  },
-  m1_s1_l4: {
-    name: "Manual Mode",
-    briefing: "Verify the technical manual instructions. Check the content of the hidden file '.manual_tecnico.txt'.",
-    hint: "Use 'cat .manual_tecnico.txt' or 'ls -la' to see hidden files."
-  },
-  m1_s1_l5: {
-    name: "Directory Navigation",
-    briefing: "The system core configs are located in '/etc'. List all files under '/etc' to find the system config.",
-    hint: "Use 'ls /etc'"
-  },
-  m9_l171: {
-    name: "Nginx as a Web Server",
-    briefing: "Configure Nginx to serve the static landing page for the fintech company on the default port.",
-    hint: "Edit the configuration in /etc/nginx/nginx.conf and start Nginx using systemctl start nginx."
-  }
-};
+import { translations, levelTranslations } from "./data/translations";
 
 // Helper for vintage retro sounds
 function playAudioTone(freq: number, duration: number, type: "sine" | "square" | "sawtooth" = "sine", volume = 0.05) {
@@ -685,7 +563,7 @@ export default function App() {
         // Write to virtualFS
         const resolved = resolveVirtualPath(redirectFile);
         setVirtualFS(prev => {
-          const dirContents = { ...prev[resolved.parentDir] } || {};
+          const dirContents = { ...prev[resolved.parentDir] };
           const existingFile = dirContents[resolved.name];
           let newContent = stdout;
           if (isAppend && existingFile && existingFile.type === "file") {
@@ -2499,7 +2377,7 @@ export default function App() {
           setVirtualFS(prev => {
             const next = { ...prev };
             files.forEach(f => {
-              const filename = os.path.basename(f);
+              const filename = f.split('/').pop() || "";
               const dirContents = { ...next[currentPath] };
               dirContents[filename] = {
                 name: filename,
@@ -3343,33 +3221,33 @@ export default function App() {
           <div className="flex items-center justify-between border-b border-[#00ff41] pb-3 mb-6">
             <div className="flex items-center gap-2">
               <Terminal className="w-5 h-5 text-[#00ff41]" />
-              <h1 className="text-sm font-bold uppercase tracking-widest text-[#00ff41]">ROOT ACCESS: DevOps</h1>
+              <h1 className="text-sm font-bold uppercase tracking-widest text-[#00ff41]">{t("loginTitle")}</h1>
             </div>
-            <div className="text-[9px] text-[#ff9d00] font-bold">BOOTING SYSTEM...</div>
+            <div className="text-[9px] text-[#ff9d00] font-bold">{t("loginBooting")}</div>
           </div>
 
           <div className="space-y-4 text-xs leading-relaxed">
-            <p className="text-[#00d4ff] font-bold">&gt; SYSTEM INITIALIZATION SEQUENCE</p>
-            <p>AURA-7 Core Assistente está operando com apenas <span className="text-[#ff9d00]">35% de integridade neuronal</span>.</p>
-            <p className="text-gray-400">Para restabelecer comunicações encriptadas locais, faça o registro do Operador de Bunker:</p>
+            <p className="text-[#00d4ff] font-bold">{t("loginSeq")}</p>
+            <p>{t("loginAuraDegraded")}</p>
+            <p className="text-gray-400">{t("loginRegister")}</p>
 
             <form onSubmit={handleRegisterName} className="mt-6 space-y-4 border-t border-[#00ff41]/20 pt-4">
               <div>
                 <label className="block text-[10px] uppercase font-bold tracking-wider text-gray-400 mb-2">
-                  Nome do Operador / Usuário Unix:
+                  {t("loginLabel")}
                 </label>
                 <input
                   type="text"
                   name="playerName"
                   required
-                  placeholder="Ex: rodrigo"
+                  placeholder={lang === "pt" ? "Ex: rodrigo" : "e.g., rodrigo"}
                   className="w-full bg-black border border-[#00ff41]/50 px-3 py-2 text-sm text-[#00ff41] focus:outline-none focus:border-[#00ff41] focus:ring-1 focus:ring-[#00ff41] uppercase placeholder-emerald-950 font-bold mb-4"
                 />
               </div>
 
               <div className="border-t border-[#00ff41]/10 pt-4">
                 <label className="block text-[10px] uppercase font-bold tracking-wider text-gray-400 mb-3">
-                  Configuração da IA AURA-7:
+                  {lang === "pt" ? "Configuração da IA AURA-7:" : "AURA-7 AI Configuration:"}
                 </label>
                 
                 <input type="hidden" name="llmProvider" value={configProvider} />
@@ -3385,7 +3263,7 @@ export default function App() {
                     }`}
                   >
                     <HelpCircle className="w-4 h-4" />
-                    <span className="text-[9px] uppercase tracking-wider leading-none">Simulada</span>
+                    <span className="text-[9px] uppercase tracking-wider leading-none">{lang === "pt" ? "Simulada" : "Simulated"}</span>
                     <span className="text-[7px] opacity-70 block leading-tight">Offline</span>
                   </button>
                   
@@ -3414,20 +3292,20 @@ export default function App() {
                   >
                     <Zap className="w-4 h-4" />
                     <span className="text-[9px] uppercase tracking-wider leading-none">Gemini</span>
-                    <span className="text-[7px] opacity-70 block leading-tight">Nuvem API</span>
+                    <span className="text-[7px] opacity-70 block leading-tight">{lang === "pt" ? "Nuvem API" : "Cloud API"}</span>
                   </button>
                 </div>
 
                 {configProvider === "simulated" && (
                   <div className="p-3 border border-[#00ff41]/20 bg-[#00ff41]/5 rounded mb-3 text-[9px] text-gray-400 leading-normal text-left">
-                    <span className="text-[#00ff41] font-bold">Modo Offline Simulado:</span> A AURA-7 utilizará respostas e dicas pré-definidas baseadas nas diretrizes locais de cada nível. Não requer chaves de nuvem ou execução de hardware de IA local.
+                    <span className="text-[#00ff41] font-bold">{t("settingsMode")}</span> {t("settingsOfflineDesc")}
                   </div>
                 )}
 
                 {configProvider === "local" && (
                   <div className="space-y-2.5 p-3 border border-[#00ff41]/20 bg-[#00ff41]/5 rounded mb-3 animate-fadeIn text-left">
                     <div>
-                      <label className="block text-[8px] uppercase font-bold text-gray-500 mb-1">URL Base do Ollama:</label>
+                      <label className="block text-[8px] uppercase font-bold text-gray-500 mb-1">{lang === "pt" ? "URL Base do Ollama:" : "Ollama Base URL:"}</label>
                       <input
                         type="text"
                         name="llmBaseUrl"
@@ -3437,7 +3315,7 @@ export default function App() {
                       />
                     </div>
                     <div>
-                      <label className="block text-[8px] uppercase font-bold text-gray-500 mb-1">Modelo de Linguagem:</label>
+                      <label className="block text-[8px] uppercase font-bold text-gray-500 mb-1">{lang === "pt" ? "Modelo de Linguagem:" : "Language Model:"}</label>
                       <input
                         type="text"
                         name="llmModel"
@@ -3453,15 +3331,15 @@ export default function App() {
                       disabled={checkingOllama}
                       className="w-full bg-black border border-[#00ff41] text-[#00ff41] hover:bg-[#00ff41]/10 py-1 rounded text-[8px] font-bold uppercase tracking-wider cursor-pointer mt-1"
                     >
-                      {checkingOllama ? "Verificando..." : "Autochecar Conexão e Hardware"}
+                      {checkingOllama ? (lang === "pt" ? "Verificando..." : "Checking...") : (lang === "pt" ? "Autochecar Conexão e Hardware" : "Autocheck Connection & Hardware")}
                     </button>
 
                     {autocheckResult && autocheckResult.checked && (
                       <div className="text-[9px] space-y-1 bg-black/60 p-2 border border-[#00ff41]/10 rounded leading-normal text-gray-300">
                         <p>Status: <span className={autocheckResult.running ? "text-[#00ff41]" : "text-red-400"}>{autocheckResult.running ? "ONLINE" : "OFFLINE"}</span></p>
-                        <p>RAM: {autocheckResult.ramGB} GB | Recomendado: {autocheckResult.recommendation}</p>
+                        <p>RAM: {autocheckResult.ramGB} GB | {lang === "pt" ? "Recomendado" : "Recommended"}: {autocheckResult.recommendation}</p>
                         {autocheckResult.running && (
-                          <p className="text-[8px] truncate">Instalados: {autocheckResult.models.join(", ") || "nenhum"}</p>
+                          <p className="text-[8px] truncate">{lang === "pt" ? "Instalados:" : "Installed:"} {autocheckResult.models.join(", ") || (lang === "pt" ? "nenhum" : "none")}</p>
                         )}
                       </div>
                     )}
@@ -3470,13 +3348,13 @@ export default function App() {
 
                 {configProvider === "gemini" && (
                   <div className="p-3 border border-[#00ff41]/20 bg-[#00ff41]/5 rounded mb-3 animate-fadeIn text-left">
-                    <label className="block text-[8px] uppercase font-bold text-gray-500 mb-1">Chave de API do Gemini:</label>
+                    <label className="block text-[8px] uppercase font-bold text-gray-500 mb-1">{t("settingsKeyLabel")}</label>
                     <input
                       type="password"
                       name="llmApiKey"
                       value={configApiKey}
                       onChange={(e) => setConfigApiKey(e.target.value)}
-                      placeholder="Cole sua GEMINI_API_KEY"
+                      placeholder={lang === "pt" ? "Cole sua GEMINI_API_KEY" : "Paste your GEMINI_API_KEY"}
                       className="w-full bg-black border border-[#00ff41]/50 px-2 py-1 text-xs text-[#00ff41] focus:outline-none"
                     />
                   </div>
@@ -3488,7 +3366,7 @@ export default function App() {
                   type="submit"
                   className="w-full bg-[#00ff41] text-black py-2.5 font-bold hover:bg-emerald-400 cursor-pointer text-xs uppercase tracking-widest transition-all duration-150"
                 >
-                  Inicializar Bunker
+                  {t("loginBtn")}
                 </button>
               </div>
             </form>
@@ -3519,24 +3397,24 @@ export default function App() {
             </div>
             <div className="text-[10px] opacity-80 uppercase tracking-tight flex items-center gap-2">
               <span>Status:</span>
-              <span className="text-[#00ff41] font-bold">ONLINE</span>
+              <span>{lang === "pt" ? "ONLINE" : "ONLINE"}</span>
               <span className="text-gray-600">|</span>
-              <span>Integridade AURA:</span>
+              <span>{lang === "pt" ? "Integridade AURA:" : "AURA Integrity:"}</span>
               <span className="text-[#ff9d00] font-bold">{saveState.auraIntegrity}%</span>
             </div>
           </div>
 
           <div className="flex items-center gap-6 text-[10px]">
             <div className="text-right">
-              <p className="opacity-50 text-[9px] uppercase">Operador Bunker</p>
+              <p className="opacity-50 text-[9px] uppercase">{t("operatorBunker")}</p>
               <p className="font-bold text-white uppercase">{saveState.playerName}@bunker-shell</p>
             </div>
             <div className="text-right">
-              <p className="opacity-50 text-[9px] uppercase">R$ Créditos</p>
-              <p className="font-bold text-[#ff9d00]">R$ {saveState.credits}</p>
+              <p className="opacity-50 text-[9px] uppercase">{t("credits")}</p>
+              <p className="font-bold text-[#ff9d00]">{lang === "pt" ? "R$" : "$"} {saveState.credits}</p>
             </div>
             <div className="text-right">
-              <p className="opacity-50 text-[9px] uppercase">SYSTEM CLOCK</p>
+              <p className="opacity-50 text-[9px] uppercase">{t("systemClock")}</p>
               <p className="font-mono text-[11px] text-[#00d4ff]">{systime}</p>
             </div>
             
@@ -3587,10 +3465,10 @@ export default function App() {
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
                   <div className={`w-2.5 h-2.5 rounded-full ${saveState.auraIntegrity < 50 ? "bg-[#ff9d00] animate-ping" : "bg-[#00ff41]"}`}></div>
-                  <h2 className="text-xs font-bold uppercase tracking-widest text-[#00ff41]">AURA-7 Assistant</h2>
+                  <h2 className="text-xs font-bold uppercase tracking-widest text-[#00ff41]">{t("auraTitle")}</h2>
                 </div>
                 <span className="text-[9px] border border-[#00ff41]/30 px-1 bg-black font-semibold text-gray-300">
-                  Integridade {saveState.auraIntegrity}%
+                  {lang === "pt" ? "Integridade" : "Integrity"} {saveState.auraIntegrity}%
                 </span>
               </div>
 
@@ -3607,9 +3485,9 @@ export default function App() {
                           type="button"
                           onClick={() => handleCopyMessage(msg.content, idx)}
                           className="text-[8px] text-gray-500 hover:text-[#00ff41] bg-black/40 px-1.5 py-0.5 rounded border border-[#00ff41]/10 hover:border-[#00ff41]/40 cursor-pointer uppercase transition-all"
-                          title="Copiar texto da mensagem"
+                          title={lang === "pt" ? "Copiar texto da mensagem" : "Copy message text"}
                         >
-                          {copiedIdx === idx ? "Copiado!" : "Copiar"}
+                          {copiedIdx === idx ? (lang === "pt" ? "Copiado!" : "Copied!") : (lang === "pt" ? "Copiar" : "Copy")}
                         </button>
                       </div>
                       <p className="font-mono whitespace-pre-wrap select-text selection:bg-[#00ff41]/30">{msg.content}</p>
@@ -3617,7 +3495,7 @@ export default function App() {
                   ))}
                   {auraLoading && (
                     <div className="p-1 text-[10px] text-yellow-500 animate-pulse">
-                      &gt; AURA-7 processando fluxo de rede tática...
+                      &gt; {t("processing")}
                     </div>
                   )}
                   <div ref={auraChatBottomRef} />
@@ -3630,7 +3508,7 @@ export default function App() {
                   type="text"
                   value={auraMessage}
                   onChange={(e) => setAuraMessage(e.target.value)}
-                  placeholder="Peça dica de comando Linux..."
+                  placeholder={lang === "pt" ? "Peça dica de comando Linux..." : "Ask for a Linux command hint..."}
                   disabled={auraLoading}
                   className="flex-1 bg-black border border-[#00ff41]/30 placeholder-emerald-950 px-2 py-1 text-xs text-[#00ff41] focus:outline-none focus:border-[#00ff41] rounded"
                   id="aura-chat-input-box"
@@ -3651,10 +3529,10 @@ export default function App() {
               <div className="flex items-center justify-between mb-2">
                 <h2 className="text-[10px] font-bold uppercase tracking-widest text-[#ff9d00] flex items-center gap-1">
                   <Briefcase className="w-3.5 h-3.5" />
-                  SysAdmin-Jobs (Freelas)
+                  {t("jobBoard")}
                 </h2>
                 <div className="text-[9px] text-[#00ff41]">
-                  Nível {saveState.currentLevelId}/6
+                  {lang === "pt" ? "Nível" : "Level"} {saveState.currentLevelId}
                 </div>
               </div>
 
@@ -3679,12 +3557,12 @@ export default function App() {
                         <span className={`text-[8px] px-1 rounded uppercase ${
                           isCompleted ? "bg-[#00ff41]/20 text-[#00ff41]" : "bg-yellow-500/10 text-yellow-400"
                         }`}>
-                          {isCompleted ? "Concluído" : "Disponível"}
+                          {isCompleted ? (lang === "pt" ? "Concluído" : "Completed") : (lang === "pt" ? "Disponível" : "Available")}
                         </span>
                       </div>
                       <div className="flex justify-between items-center mt-1 text-[9px] opacity-75">
-                        <span className="text-gray-400">{lvl.difficulty} | +R$ {lvl.salary}</span>
-                        <span className="text-[#00d4ff] font-bold text-[8px] uppercase">VER DETALHES</span>
+                        <span className="text-gray-400">{lang === "pt" ? lvl.difficulty : (lvl.difficulty === "easy" ? "easy" : lvl.difficulty === "medium" ? "medium" : lvl.difficulty === "hard" ? "hard" : "legendary")} | +{lang === "pt" ? "R$" : "$"} {lvl.salary}</span>
+                        <span className="text-[#00d4ff] font-bold text-[8px] uppercase">{lang === "pt" ? "VER DETALHES" : "VIEW DETAILS"}</span>
                       </div>
                     </div>
                   );
@@ -3698,10 +3576,10 @@ export default function App() {
                   className="bg-black border border-red-500/40 text-red-400 hover:bg-red-950/20 px-2 py-1 text-[9px] uppercase font-bold tracking-wider rounded cursor-pointer"
                   id="game-reset-progress-btn"
                 >
-                  Reiniciar Tudo
+                  {lang === "pt" ? "Reiniciar Tudo" : "Reset All"}
                 </button>
                 <div className="text-[9px] text-gray-400 flex items-center">
-                  Câmbio: R$ 1.0 = 1 CRD
+                  {lang === "pt" ? "Câmbio: R$ 1.0 = 1 CRD" : "Rate: $1.0 = 1 CRD"}
                 </div>
               </div>
             </div>
@@ -3709,6 +3587,7 @@ export default function App() {
           </div>
 
           <TerminalView
+            lang={lang}
             terminalLines={terminalLines}
             terminalBottomRef={terminalBottomRef}
             terminalInput={terminalInput}
@@ -3734,14 +3613,14 @@ export default function App() {
             <div className="border border-[#00ff41]/30 bg-[#00ff41]/5 p-4 rounded flex flex-col">
               <h2 className="text-[10px] font-bold uppercase tracking-wider text-[#ff9d00] mb-2 flex items-center gap-1">
                 <HelpCircle className="w-3.5 h-3.5" />
-                Dossiê: {currentChallenge.name}
+                {lang === "pt" ? "Dossiê:" : "Dossier:"} {currentChallenge.name}
               </h2>
               <p className="text-[11px] leading-relaxed text-gray-300">
                 {currentChallenge.briefing}
               </p>
               
               <div className="border-t border-[#00ff41]/20 mt-3 pt-3">
-                <span className="text-[9px] uppercase tracking-wider text-gray-400 block mb-1">Dica de Suporte:</span>
+                <span className="text-[9px] uppercase tracking-wider text-gray-400 block mb-1">{lang === "pt" ? "Dica de Suporte:" : "Support Hint:"}</span>
                 <p className="text-[10px] italic text-[#00d4ff] bg-[#00d4ff]/5 p-2 rounded border border-[#00d4ff]/20">
                   {currentChallenge.hint}
                 </p>
@@ -3754,7 +3633,7 @@ export default function App() {
                 id="verify-status-btn"
               >
                 <CheckCircle className="w-4 h-4" />
-                Garantir Solução
+                {t("jobCheckBtn")}
               </button>
 
               {/* Feedback messages block */}
@@ -3765,7 +3644,7 @@ export default function App() {
                   : "border-red-500/50 bg-red-950/20 text-red-400"
                 }`}>
                   <span className="font-bold uppercase block text-[10px] mb-0.5">
-                    {feedbackMsg.type === "success" ? "✓ SISTEMA CONCORDOU" : "✗ FALHA EM REDUÇÃO"}
+                    {feedbackMsg.type === "success" ? (lang === "pt" ? "✓ SISTEMA CONCORDOU" : "✓ SYSTEM AGREED") : (lang === "pt" ? "✗ FALHA EM REDUÇÃO" : "✗ VERIFICATION FAILED")}
                   </span>
                   {feedbackMsg.text}
                 </div>
@@ -3776,7 +3655,7 @@ export default function App() {
             <div className="border border-[#00ff41]/30 bg-[#00ff41]/5 p-3 rounded flex flex-col flex-1">
               <h2 className="text-[10px] font-bold uppercase mb-2 text-[#00ff41] tracking-wider flex items-center gap-1.5">
                 <Folder className="w-4 h-4 text-[#00ff41]" />
-                Pasta: {currentPath} (Navegar / Editar)
+                {lang === "pt" ? "Pasta:" : "Folder:"} {currentPath} ({lang === "pt" ? "Navegar / Editar" : "Browse / Edit"})
               </h2>
               
               <div className="flex-1 overflow-y-auto space-y-1.5 max-h-56 custom-scrollbar pr-1">
@@ -3874,34 +3753,34 @@ export default function App() {
             <div className="flex items-center justify-between border-b border-[#00ff41] pb-3 mb-4">
               <div className="flex items-center gap-2">
                 <Settings className="w-5 h-5 text-[#00ff41] animate-spin" style={{ animationDuration: '4s' }} />
-                <h3 className="text-xs font-bold uppercase tracking-wider text-[#00ff41]">CONFIGURAÇÕES NEURAIS DA AURA-7</h3>
+                <h3 className="text-xs font-bold uppercase tracking-wider text-[#00ff41]">{t("settingsTitle")}</h3>
               </div>
               <button 
                 onClick={() => setSettingsOpen(false)}
                 className="text-gray-400 hover:text-white cursor-pointer text-xs uppercase"
               >
-                [X] fechar
+                [X] {lang === "pt" ? "fechar" : "close"}
               </button>
             </div>
 
             <div className="space-y-4 text-xs">
               <div>
-                <label className="block text-[10px] uppercase font-bold text-gray-400 mb-1.5 text-left">Provedor de Inteligência:</label>
+                <label className="block text-[10px] uppercase font-bold text-gray-400 mb-1.5 text-left">{lang === "pt" ? "Provedor de Inteligência:" : "Intelligence Provider:"}</label>
                 <select
                   value={configProvider}
                   onChange={(e) => setConfigProvider(e.target.value as any)}
                   className="w-full bg-black border border-[#00ff41]/50 px-2 py-1.5 text-xs text-[#00ff41] focus:outline-none"
                 >
-                  <option value="simulated">Simulada / Dicas Locais (Offline)</option>
-                  <option value="local">Ollama Local (LLM Própria)</option>
-                  <option value="gemini">Google Gemini Cloud (API)</option>
+                  <option value="simulated">{lang === "pt" ? "Simulada / Dicas Locais (Offline)" : "Simulated / Local Hints (Offline)"}</option>
+                  <option value="local">{lang === "pt" ? "Ollama Local (LLM Própria)" : "Local Ollama (Own LLM)"}</option>
+                  <option value="gemini">{lang === "pt" ? "Google Gemini Cloud (API)" : "Google Gemini Cloud (API)"}</option>
                 </select>
               </div>
 
               {configProvider === "local" && (
                 <div className="space-y-3 p-3 border border-[#00ff41]/20 bg-[#00ff41]/5 rounded text-left">
                   <div>
-                    <label className="block text-[9px] uppercase font-bold text-gray-400 mb-1">URL Base do Ollama:</label>
+                    <label className="block text-[9px] uppercase font-bold text-gray-400 mb-1">{lang === "pt" ? "URL Base do Ollama:" : "Ollama Base URL:"}</label>
                     <input
                       type="text"
                       value={configBaseUrl}
@@ -3911,7 +3790,7 @@ export default function App() {
                     />
                   </div>
                   <div>
-                    <label className="block text-[9px] uppercase font-bold text-gray-400 mb-1">Modelo de Linguagem:</label>
+                    <label className="block text-[9px] uppercase font-bold text-gray-400 mb-1">{lang === "pt" ? "Modelo de Linguagem:" : "Language Model:"}</label>
                     <input
                       type="text"
                       value={configModel}
@@ -3928,7 +3807,7 @@ export default function App() {
                       disabled={checkingOllama}
                       className="bg-black border border-[#00ff41] text-[#00ff41] hover:bg-[#00ff41]/10 py-1.5 rounded text-[10px] font-bold uppercase tracking-wider cursor-pointer"
                     >
-                      {checkingOllama ? "Autochecando..." : "Autochecar Conexão e Hardware"}
+                      {checkingOllama ? (lang === "pt" ? "Autochecando..." : "Checking...") : (lang === "pt" ? "Autochecar Conexão e Hardware" : "Autocheck Connection & Hardware")}
                     </button>
 
                     {autocheckResult && autocheckResult.checked && (
@@ -3936,14 +3815,14 @@ export default function App() {
                         <p>
                           Status Ollama:{" "}
                           <span className={autocheckResult.running ? "text-[#00ff41]" : "text-red-400"}>
-                            {autocheckResult.running ? "ATIVO & RESPONDENDO" : "OFFLINE / INACESSÍVEL"}
+                            {autocheckResult.running ? (lang === "pt" ? "ATIVO & RESPONDENDO" : "ACTIVE & RESPONDING") : (lang === "pt" ? "OFFLINE / INACESSÍVEL" : "OFFLINE / INACCESSIBLE")}
                           </span>
                         </p>
-                        <p>Memória RAM do Host: <span className="text-white">{autocheckResult.ramGB} GB</span></p>
-                        <p>Modelo Indicado: <span className="text-[#00d4ff]">{autocheckResult.recommendation}</span></p>
+                        <p>{lang === "pt" ? "Memória RAM do Host:" : "Host RAM Memory:"} <span className="text-white">{autocheckResult.ramGB} GB</span></p>
+                        <p>{lang === "pt" ? "Modelo Indicado:" : "Recommended Model:"} <span className="text-[#00d4ff]">{autocheckResult.recommendation}</span></p>
                         {autocheckResult.running && (
                           <p className="text-[9px] truncate">
-                            Modelos: <span className="text-white font-mono">{autocheckResult.models.join(", ") || "(nenhum)"}</span>
+                            {lang === "pt" ? "Modelos:" : "Models:"} <span className="text-white font-mono">{autocheckResult.models.join(", ") || (lang === "pt" ? "(nenhum)" : "(none)")}</span>
                           </p>
                         )}
                       </div>
@@ -3955,16 +3834,16 @@ export default function App() {
               {configProvider === "gemini" && (
                 <div className="space-y-3 p-3 border border-[#00ff41]/20 bg-[#00ff41]/5 rounded animate-fadeIn text-left">
                   <div>
-                    <label className="block text-[9px] uppercase font-bold text-gray-400 mb-1">Chave de API do Gemini:</label>
+                    <label className="block text-[9px] uppercase font-bold text-gray-400 mb-1">{t("settingsKeyLabel")}</label>
                     <input
                       type="password"
                       value={configApiKey}
                       onChange={(e) => setConfigApiKey(e.target.value)}
-                      placeholder="Cole sua chave GEMINI_API_KEY aqui"
+                      placeholder={lang === "pt" ? "Cole sua chave GEMINI_API_KEY aqui" : "Paste your GEMINI_API_KEY here"}
                       className="w-full bg-black border border-[#00ff41]/50 px-2 py-1 text-xs text-[#00ff41] focus:outline-none"
                     />
                     <span className="text-[8px] text-gray-500 mt-1 block leading-normal">
-                      A chave fica salva apenas localmente no seu localStorage de forma estritamente privada.
+                      {lang === "pt" ? "A chave fica salva apenas localmente no seu localStorage de forma estritamente privada." : "The key is saved only locally in your localStorage, strictly private."}
                     </span>
                   </div>
                 </div>
@@ -3973,7 +3852,7 @@ export default function App() {
               <div className="flex justify-between items-center pt-3 border-t border-[#00ff41]/20">
                 <button
                   onClick={() => {
-                    if (confirm("Isso apagará a identificação atual do operador e retornará à tela de registro inicial. Confirmar?")) {
+                    if (confirm(lang === "pt" ? "Isso apagará a identificação atual do operador e retornará à tela de registro inicial. Confirmar?" : "This will delete the current operator identification and return to the initial registration screen. Confirm?")) {
                       setSaveState(prev => ({
                         ...prev,
                         registered: false,
@@ -3984,9 +3863,9 @@ export default function App() {
                     }
                   }}
                   className="bg-red-950/20 border border-red-800 hover:bg-red-900/30 text-red-400 px-2 py-1.5 rounded text-[10px] font-bold uppercase cursor-pointer mr-auto transition-all"
-                  title="Alterar operador ou reconfigurar conexão de IA"
+                  title={lang === "pt" ? "Alterar operador ou reconfigurar conexão de IA" : "Change operator or reconfigure AI connection"}
                 >
-                  [Resetar Operador]
+                  [{lang === "pt" ? "Resetar Operador" : "Reset Operator"}]
                 </button>
 
                 <div className="flex gap-2">
@@ -3994,7 +3873,7 @@ export default function App() {
                     onClick={() => setSettingsOpen(false)}
                     className="bg-black border border-gray-600 hover:bg-gray-800 text-gray-400 px-3 py-1.5 rounded text-xs font-bold uppercase cursor-pointer"
                   >
-                    Cancelar
+                    {lang === "pt" ? "Cancelar" : "Cancel"}
                   </button>
                   <button
                     onClick={() => {
@@ -4012,7 +3891,7 @@ export default function App() {
                     }}
                     className="bg-[#00ff41] hover:bg-emerald-400 text-black px-4 py-1.5 rounded text-xs font-black uppercase cursor-pointer"
                   >
-                    Salvar Configurações
+                    {t("settingsSave")}
                   </button>
                 </div>
               </div>

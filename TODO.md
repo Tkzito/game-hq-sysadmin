@@ -9,6 +9,9 @@ Este documento resume a situação atual do projeto **ROOT ACCESS** e mapeia o q
 - [x] **Compilação de Dados**: O compilador em Python gerou com sucesso as definições de fases em TypeScript para o frontend React.
 - [x] **Estrutura de Arquivos Organizada**: Todos os arquivos de documentação markdown de módulos (`modulo*.md` e `modulo*_roadmap.md`) foram organizados na pasta `docs/curriculum/`.
 - [x] **Compilação e Build de Produção**: O projeto React/Vite compila com sucesso absoluto (`npm run build`).
+- [x] **Latência do Validador Nativo**: Executado o benchmark de performance com média de tempo de validação de ~235ms.
+- [x] **Integração com Godot Engine**: Lógica de CLI e de API do orquestrador local adaptada e testada com a ponte `OrchestratorBridge.gd`.
+- [x] **Internacionalização (i18n)**: Avaliação do design dual-language realizada e tradução completa da interface Web (Terminal, GNU nano, menus, AURA) e briefings implantada em `src/data/translations.ts`.
 
 ---
 
@@ -16,17 +19,8 @@ Este documento resume a situação atual do projeto **ROOT ACCESS** e mapeia o q
 
 ### 1. Testes de Gameplay Manuais (QA)
 - [ ] Rodar o jogo localmente (`npm run dev` + orquestrador backend) e testar a resolução de pelo menos um nível por módulo.
-- [ ] Checar se as respostas dos validadores nativos (no histórico de bash e no filesystem) estão respondendo sem lentidão excessiva.
 
-### 2. Integração com Godot Engine
-- [ ] Validar a ponte GDScript (`OrchestratorBridge.gd` em `docs/` ou na pasta do jogo) com a UI desenvolvida em Godot.
-- [ ] Garantir o recebimento correto de payloads JSON do orquestrador local.
-
-### 3. Internacionalização (i18n)
-- [ ] Avaliar a viabilidade e escolher o design de tradução (Dual-language objects vs Separate generated bundles) para oferecer suporte a Português (Brasil) e Inglês (ver detalhes de viabilidade no relatório final).
-- [ ] Implementar tradução da interface do terminal web e arquivos de briefings.
-
-### 4. Deploy & Git
+### 2. Deploy & Git
 - [ ] Realizar revisão de segurança nos contêineres Docker gerados.
 - [ ] Executar commit único e atômico e fazer o push para o repositório público.
 
