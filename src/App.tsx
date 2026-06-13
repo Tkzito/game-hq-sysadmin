@@ -32,6 +32,8 @@ import {
 } from "lucide-react";
 import { CHALLENGES } from "./data/challenges";
 import TerminalView from "./components/TerminalView";
+import AnimationPlayer from "./components/AnimationPlayer";
+import animations from "./data/animations.json";
 
 import { SaveState, VirtualFS, TerminalLine, ChatMessage, FSItem } from "./types";
 
@@ -61,6 +63,17 @@ function playAudioTone(freq: number, duration: number, type: "sine" | "square" |
 }
 
 export default function App() {
+  const getAsset = (levelId: string, type: "challenge" | "success") => {
+    const mod = levelId.slice(0, 2);
+    const sub = levelId.slice(3, 5);
+    const lvl = levelId.slice(6, 8);
+    const modMap = (animations.modules as any)[mod];
+    const subMap = (animations.submodules as any)[sub];
+    const lvlMap = (animations.levels as any)[lvl];
+    return type === "challenge"
+      ? (lvlMap?.challenge ?? subMap?.challenge ?? modMap?.challenge ?? "lock.svg")
+      : (lvlMap?.success ?? subMap?.success ?? modMap?.success ?? "spark.svg");
+  };
   // Check localStorage for player save state
   const [saveState, setSaveState] = useState<SaveState>(() => {
     const saved = localStorage.getItem("root_access_save");
@@ -208,6 +221,10 @@ export default function App() {
   // Interface controls
   const [terminalFocus, setTerminalFocus] = useState(true);
   const [activeTab, setActiveTab] = useState<"terminal" | "jobs" | "manual">("terminal");
+  const [showAnimation, setShowAnimation] = useState<{
+    type: "challenge" | "success";
+    asset: string;
+  } | null>(null);
   const [feedbackMsg, setFeedbackMsg] = useState<{ text: string; type: "success" | "error" | null }>({ text: "", type: null });
 
   // References
@@ -238,36 +255,44 @@ export default function App() {
       setCurrentPath("/");
       setVariables({});
       
-      // Welcome terminal lines for this level
-      setTerminalLines([
-        {
-          id: `${Date.now()}-boot`,
-          text: `--- SECTOR BOOTING: LEVEL ${currentChallenge.id} ---`,
-          type: "system",
-          timestamp: new Date().toLocaleTimeString()
-        },
-        {
-          id: `${Date.now()}-desc`,
-          text: `CONTRATO: ${currentChallenge.name} [R$: ${currentChallenge.salary} CRÉDITOS]`,
-          type: "warning",
-          timestamp: new Date().toLocaleTimeString()
-        },
-        {
-          id: `${Date.now()}-instruction`,
-          text: `Digite 'briefing' para rever as metas ou use 'ajuda' para listar comandos.`,
-          type: "output",
-          timestamp: new Date().toLocaleTimeString()
-        }
-      ]);
+      // Trigger challenge animation
+      const challengeAsset = getAsset(saveState.currentLevelId, "challenge");
+      setShowAnimation({ type: "challenge", asset: challengeAsset });
 
-      // Set initial AURA greetings
-      setAuraChat([
-        {
-          role: "assistant",
-          content: `[AURA-7 // Integridade: ${saveState.auraIntegrity}%]: Operador ${saveState.playerName || "Recruta"}, estou com capacidade parcial. Desafio atual: "${currentChallenge.name}". O que podemos listar para iniciar? Peça uma "dica" ou relate um "ajuda" para que eu auxilie sua progressão de linha de comando.`,
-          timestamp: new Date().toLocaleTimeString()
-        }
-      ]);
+      const timer = setTimeout(() => {
+        // Welcome terminal lines for this level
+        setTerminalLines([
+          {
+            id: `${Date.now()}-boot`,
+            text: `--- SECTOR BOOTING: LEVEL ${currentChallenge.id} ---`,
+            type: "system",
+            timestamp: new Date().toLocaleTimeString()
+          },
+          {
+            id: `${Date.now()}-desc`,
+            text: `CONTRATO: ${currentChallenge.name} [R$: ${currentChallenge.salary} CRÉDITOS]`,
+            type: "warning",
+            timestamp: new Date().toLocaleTimeString()
+          },
+          {
+            id: `${Date.now()}-instruction`,
+            text: `Digite 'briefing' para rever as metas ou use 'ajuda' para listar comandos.`,
+            type: "output",
+            timestamp: new Date().toLocaleTimeString()
+          }
+        ]);
+
+        // Set initial AURA greetings
+        setAuraChat([
+          {
+            role: "assistant",
+            content: `[AURA-7 // Integridade: ${saveState.auraIntegrity}%]: Operador ${saveState.playerName || "Recruta"}, estou com capacidade parcial. Desafio atual: "${currentChallenge.name}". O que podemos listar para iniciar? Peça uma "dica" ou relate um "ajuda" para que eu auxilie sua progressão de linha de comando.`,
+            timestamp: new Date().toLocaleTimeString()
+          }
+        ]);
+        setShowAnimation(null);
+      }, 2000);
+      return () => clearTimeout(timer);
     }
   }, [saveState.currentLevelId]);
 
@@ -389,42 +414,6 @@ export default function App() {
 
   const processValidationResult = (check: { success: boolean; message?: string }) => {
     if (check.success) {
-      triggerBeep(880, 0.25, "sine");
-      triggerBeep(1200, 0.3, "sine");
-      
-      const newIntegrity = Math.min(100, saveState.auraIntegrity + 10);
-      const isAlreadyCompleted = saveState.completedLevels.includes(currentChallenge.id);
-      const updatedCredits = isAlreadyCompleted ? saveState.credits : saveState.credits + currentChallenge.salary;
-      const nextLevelIndex = localizedChallenges.findIndex(c => c.id === currentChallenge.id) + 1;
-      const nextLevelId = nextLevelIndex < localizedChallenges.length ? localizedChallenges[nextLevelIndex].id : currentChallenge.id;
-      
-      setFeedbackMsg({
-         text: check.message || "Fase superada com sucesso!",
-         type: "success"
-      });
-
-      // Update save state
-      setSaveState(prev => ({
-        ...prev,
-        credits: updatedCredits,
-        auraIntegrity: newIntegrity,
-        completedLevels: isAlreadyCompleted ? prev.completedLevels : [...prev.completedLevels, currentChallenge.id],
-        currentLevelId: nextLevelId
-      }));
-
-      // Append success lines
-      setTerminalLines(prev => [
-        ...prev,
-        {
-          id: `${Date.now()}-done`,
-          text: `[SUCESSO] ${check.message || "Missão Concluída!"}`,
-          type: "success",
-          timestamp: new Date().toLocaleTimeString()
-        },
-        {
-          id: `${Date.now()}-salary`,
-          text: `Contrato de Freela finalizado! Ganho de +${currentChallenge.salary} créditos corporativos.`,
-          type: "system",
           timestamp: new Date().toLocaleTimeString()
         }
       ]);
@@ -3600,7 +3589,14 @@ export default function App() {
 
           </div>
 
-          <TerminalView
+          {showAnimation && (
+        <AnimationPlayer
+          type={showAnimation.type}
+          asset={showAnimation.asset}
+          onEnd={() => setShowAnimation(null)}
+        />
+      )}
+      <TerminalView
             lang={lang}
             terminalLines={terminalLines}
             terminalBottomRef={terminalBottomRef}

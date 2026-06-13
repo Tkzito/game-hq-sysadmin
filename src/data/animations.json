@@ -1,0 +1,14 @@
+{
+  "modules": {
+    "m1": { "challenge": "lock.svg",   "success": "spark.svg" },
+    "m2": { "challenge": "gear_placeholder.svg", "success": "badge.svg" }
+  },
+  "submodules": {
+    "s1": { "challenge": "gear_placeholder.svg", "success": "badge.svg" },
+    "s2": { "challenge": "cog.svg", "success": "star.svg" }
+  },
+  "levels": {
+    "l1": { "challenge": "lock.svg",   "success": "spark.svg" },
+    "l2": { "challenge": "enemy.svg",  "success": "crown.svg" }
+  }
+}

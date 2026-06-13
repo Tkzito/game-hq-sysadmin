@@ -1,0 +1,16 @@
+.anim-player { display:flex; justify-content:center; align-items:center; height:100%; }
+.anim-svg { width:120px; height:auto; }
+
+@keyframes pulse {
+  0% { transform:scale(0.8); opacity:0; }
+  50% { transform:scale(1.1); opacity:1; }
+  100% { transform:scale(1); opacity:1; }
+}
+
+@keyframes confetti {
+  0% { transform:rotate(0deg) translateY(0); opacity:1; }
+  100% { transform:rotate(360deg) translateY(-100px); opacity:0; }
+}
+
+.challenge .anim-svg { animation: pulse 1.2s ease-out forwards; }
+.success .anim-svg { animation: confetti 1.5s ease-out forwards; }
