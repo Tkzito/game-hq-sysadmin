@@ -3480,7 +3480,7 @@ export default function App() {
     );
   }
 
-  const renderLevelsDirectory = () => {
+  function renderLevelsDirectory() {
     const modulesMap: Record<string, typeof localizedChallenges> = {};
     localizedChallenges.forEach(lvl => {
       const modName = lvl.module || "Módulo 1";
@@ -3616,7 +3616,7 @@ export default function App() {
         </div>
       </div>
     );
-  };
+  }
 
   return (
     <div className="w-full min-h-screen bg-[#07070a] text-[#00ff41] font-mono flex flex-col overflow-x-hidden relative select-none">
