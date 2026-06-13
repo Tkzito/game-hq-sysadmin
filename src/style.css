@@ -1,0 +1,122 @@
+/* src/style.css */
+
+/* ──────────────────────
+   1️⃣  Font import (Inter)
+   ────────────────────── */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 300 900;
+  src: url('https://fonts.gstatic.com/s/inter/v13/UcCO3FwrZ5aM8vQePzFf.ttf') format('truetype');
+}
+
+/* ──────────────────────
+   2️⃣  Design tokens
+   ────────────────────── */
+:root {
+  --clr-bg: hsl(210, 12%, 12%);
+  --clr-surface: hsla(210, 12%, 20%, 0.8);
+  --clr-primary: hsl(220, 85%, 60%);
+  --clr-accent: hsl(10, 85%, 60%);
+  --clr-text: hsl(0, 0%, 92%);
+  --font-sans: 'Inter', system-ui, sans-serif;
+}
+
+/* ──────────────────────
+   3️⃣  Reset & base styles
+   ────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+html {
+  font-family: var(--font-sans);
+  color: var(--clr-text);
+  background: var(--clr-bg);
+  scroll-behavior: smooth;
+}
+body {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ──────────────────────
+   4️⃣  Header (glassmorphism)
+   ────────────────────── */
+.app-header {
+  backdrop-filter: blur(12px);
+  background: var(--clr-surface);
+  padding: 1rem 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid hsla(0, 0%, 100%, 0.05);
+}
+.logo {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: var(--clr-primary);
+}
+
+/* ──────────────────────
+   5️⃣  Navigation links
+   ────────────────────── */
+.nav {
+  display: flex;
+  gap: 1.5rem;
+}
+.nav-link {
+  color: var(--clr-text);
+  text-decoration: none;
+  font-weight: 500;
+  position: relative;
+  transition: color 0.2s, transform 0.2s;
+}
+.nav-link::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: -3px;
+  width: 0%;
+  height: 2px;
+  background: var(--clr-primary);
+  transition: width 0.2s;
+}
+.nav-link:hover {
+  color: var(--clr-primary);
+  transform: translateY(-2px);
+}
+.nav-link:hover::after {
+  width: 100%;
+}
+
+/* ──────────────────────
+   6️⃣  Main container (fade‑in)
+   ────────────────────── */
+.app-main {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fadeIn 0.6s ease-out;
+}
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ──────────────────────
+   7️⃣  Responsividade
+   ────────────────────── */
+@media (max-width: 600px) {
+  .app-header { flex-direction: column; gap: 0.5rem; }
+  .nav { flex-wrap: wrap; justify-content: center; }
+}
+
+/* ──────────────────────
+   8️⃣  Utilities (optional)
+   ────────────────────── */
+.text-center { text-align: center; }
+.mt-2 { margin-top: 0.5rem; }

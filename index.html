@@ -3,10 +3,28 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>My Google AI Studio App</title>
+    <title>ROOT ACCESS – DevOps Chronicles</title>
+    <!-- Content Security Policy to mitigate XSS -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self';" />
+    <!-- Premium styling – external CSS -->
+    <link rel="stylesheet" href="/src/style.css" />
+    <!-- Favicon (optional) -->
+    <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml" />
   </head>
   <body>
-    <div id="root"></div>
+    <header class="app-header">
+      <h1 class="logo">ROOT ACCESS</h1>
+      <nav class="nav">
+        <a href="#" class="nav-link">Home</a>
+        <a href="#" class="nav-link">Levels</a>
+        <a href="#" class="nav-link">Docs</a>
+        <a href="#" class="nav-link">Contact</a>
+      </nav>
+    </header>
+
+    <main class="app-main" id="root"></main>
+
+    <!-- Vite entry point – safe module loading -->
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
