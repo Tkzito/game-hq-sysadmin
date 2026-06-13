@@ -38,9 +38,9 @@ export const AnimationPlayer: React.FC<{
         {/* Animated Icon Block */}
         <div className="anim-media-block">
           <img
-            src={`/assets/animations/${asset}`}
+            src={asset.endsWith('.svg') ? `/assets/animations/${asset}` : `/assets/${asset}`}
             alt={`${type} animation`}
-            className="anim-svg"
+            className={`anim-svg ${asset.endsWith('.svg') ? 'svg-icon' : 'hq-illustration'}`}
             loading="eager"
           />
         </div>

@@ -1,14 +1,26 @@
 {
   "modules": {
-    "m1": { "challenge": "lock.svg",   "success": "spark.svg" },
-    "m2": { "challenge": "gear_placeholder.svg", "success": "badge.svg" }
+    "m1": { "challenge": "cena-1.png", "success": "tela-vitoria.png" },
+    "m2": { "challenge": "cena-2.png", "success": "tela-vitoria.png" },
+    "m3": { "challenge": "cena-2.png", "success": "cap3_cena2_vitoria.png" },
+    "m4": { "challenge": "cena-2.png", "success": "cap4_cena2_vitoria.png" },
+    "m5": { "challenge": "cena-2.png", "success": "tela-vitoria.png" },
+    "m6": { "challenge": "cena-2.png", "success": "tela-vitoria.png" },
+    "m7": { "challenge": "cena-2.png", "success": "tela-vitoria.png" },
+    "m8": { "challenge": "cena-2.png", "success": "tela-vitoria.png" },
+    "m9": { "challenge": "cena-2.png", "success": "tela-vitoria.png" },
+    "m10": { "challenge": "cena-2.png", "success": "tela-vitoria.png" },
+    "m11": { "challenge": "cena-2.png", "success": "tela-vitoria.png" },
+    "m12": { "challenge": "cena-2.png", "success": "tela-vitoria.png" },
+    "m13": { "challenge": "cena-2.png", "success": "tela-vitoria.png" },
+    "m14": { "challenge": "cena-2.png", "success": "tela-vitoria.png" }
   },
   "submodules": {
     "s1": { "challenge": "gear_placeholder.svg", "success": "badge.svg" },
     "s2": { "challenge": "cog.svg", "success": "star.svg" }
   },
   "levels": {
-    "l1": { "challenge": "lock.svg",   "success": "spark.svg" },
-    "l2": { "challenge": "enemy.svg",  "success": "crown.svg" }
+    "l1": { "challenge": "cena-1.png", "success": "tela-vitoria.png" },
+    "l2": { "challenge": "cena-2.png", "success": "tela-vitoria.png" }
   }
 }
