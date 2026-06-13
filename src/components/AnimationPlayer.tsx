@@ -9,22 +9,27 @@ import './AnimationPlayer.css';
  * @property {() => void} [onEnd] - Optional callback invoked after the animation duration.
  */
 export const AnimationPlayer: React.FC<{type: 'challenge' | 'success'; asset: string; onEnd?: () => void}> = ({type, asset, onEnd}) => {
-  // Trigger callback after 2 seconds (duration matches CSS animation length)
+  // Trigger callback after 5 seconds
   useEffect(() => {
     const timer = setTimeout(() => {
       if (onEnd) onEnd();
-    }, 2000);
+    }, 5000);
     return () => clearTimeout(timer);
   }, [onEnd]);
 
   return (
     <div className={`anim-player ${type}`}>
-      <img
-        src={`/assets/animations/${asset}`}
-        alt={`${type} animation`}
-        className="anim-svg"
-        loading="eager"
-      />
+      <div className="anim-content">
+        <img
+          src={`/assets/animations/${asset}`}
+          alt={`${type} animation`}
+          className="anim-svg"
+          loading="eager"
+        />
+        <button className="anim-skip-btn" onClick={onEnd}>
+          PULAR INTERLÚDIO ➔
+        </button>
+      </div>
     </div>
   );
 };
