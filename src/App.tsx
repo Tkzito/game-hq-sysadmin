@@ -232,6 +232,9 @@ export default function App() {
   const [showAnimation, setShowAnimation] = useState<{
     type: "challenge" | "success";
     asset: string;
+    moduleName?: string;
+    levelName?: string;
+    storySegment?: string;
     onEnd?: () => void;
   } | null>(null);
   const [feedbackMsg, setFeedbackMsg] = useState<{ text: string; type: "success" | "error" | null }>({ text: "", type: null });
@@ -297,7 +300,13 @@ export default function App() {
 
       // Trigger challenge animation
       const challengeAsset = getAsset(saveState.currentLevelId, "challenge");
-      setShowAnimation({ type: "challenge", asset: challengeAsset });
+      setShowAnimation({
+        type: "challenge",
+        asset: challengeAsset,
+        moduleName: currentChallenge.module,
+        levelName: currentChallenge.name,
+        storySegment: currentChallenge.storySegment
+      });
     }
   }, [saveState.currentLevelId]);
 
@@ -471,6 +480,11 @@ export default function App() {
       setShowAnimation({
         type: "success",
         asset: successAsset,
+        moduleName: lang === "pt" ? "CONTRATO CONCLUÍDO!" : "CONTRACT COMPLETED!",
+        levelName: `+${currentChallenge.salary} ${lang === "pt" ? "CRÉDITOS" : "CREDITS"}`,
+        storySegment: lang === "pt" 
+          ? "Excelente trabalho, Operador. A integridade de rede foi restabelecida e os créditos foram depositados em sua conta do Bunker."
+          : "Excellent work, Operator. The network integrity has been re-established and the credits have been deposited in your Bunker account.",
         onEnd: () => {
           handleNextLevel();
           setShowAnimation(null);
@@ -3868,6 +3882,9 @@ export default function App() {
         <AnimationPlayer
           type={showAnimation.type}
           asset={showAnimation.asset}
+          moduleName={showAnimation.moduleName}
+          levelName={showAnimation.levelName}
+          storySegment={showAnimation.storySegment}
           onEnd={showAnimation.onEnd || (() => setShowAnimation(null))}
         />
       )}
