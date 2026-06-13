@@ -20,9 +20,9 @@ export const AnimationPlayer: React.FC<{
   onEnd?: () => void;
 }> = ({ type, asset, moduleName, levelName, storySegment, onEnd }) => {
   
-  // Trigger callback after 9.5s for challenge (to allow reading), 5s for success
+  // Trigger callback after 12s for challenge (to allow reading), 7s for success
   useEffect(() => {
-    const duration = type === 'challenge' ? 9500 : 6000;
+    const duration = type === 'challenge' ? 12000 : 7000;
     const timer = setTimeout(() => {
       if (onEnd) onEnd();
     }, duration);

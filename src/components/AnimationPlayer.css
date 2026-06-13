@@ -84,17 +84,17 @@
 .challenge .crawl-content {
   color: #ff9d00; /* Cyber amber */
   text-shadow: 0 0 8px rgba(255, 157, 0, 0.55);
-  animation: star-wars-crawl-challenge 9.5s linear forwards;
+  animation: star-wars-crawl-challenge 12s linear forwards;
 }
 
 .success .crawl-content {
   color: #00d4ff; /* Cyber cyan */
   text-shadow: 0 0 8px rgba(0, 212, 255, 0.55);
-  animation: star-wars-crawl-success 6s linear forwards;
+  animation: star-wars-crawl-success 7s linear forwards;
 }
 
 .crawl-module-header {
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 900;
   letter-spacing: 3px;
   margin-bottom: 8px;
@@ -112,7 +112,7 @@
 }
 
 .crawl-level-title {
-  font-size: 18px;
+  font-size: 22px;
   font-weight: bold;
   letter-spacing: 1.5px;
   color: #ffffff;
@@ -129,7 +129,7 @@
 }
 
 .crawl-narrative {
-  font-size: 12px;
+  font-size: 15px;
   line-height: 1.8;
   font-weight: 500;
   text-align: justify;
@@ -221,17 +221,17 @@
 
 @keyframes star-wars-crawl-challenge {
   0% {
-    transform: rotateX(22deg) translateY(320px);
+    transform: rotateX(22deg) translateY(340px);
     opacity: 0;
   }
-  6% {
+  8% {
     opacity: 1;
   }
-  85% {
+  88% {
     opacity: 1;
   }
   100% {
-    transform: rotateX(22deg) translateY(-320px);
+    transform: rotateX(22deg) translateY(-360px);
     opacity: 0;
   }
 }
@@ -241,14 +241,14 @@
     transform: rotateX(22deg) translateY(320px);
     opacity: 0;
   }
-  10% {
+  12% {
     opacity: 1;
   }
-  80% {
+  82% {
     opacity: 1;
   }
   100% {
-    transform: rotateX(22deg) translateY(-180px);
+    transform: rotateX(22deg) translateY(-220px);
     opacity: 0;
   }
 }
