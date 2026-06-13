@@ -189,7 +189,7 @@ export default function App() {
     return lvl;
   });
 
-  const t = (key: keyof typeof translations["pt"], params?: Record<string, string | number>) => {
+  function t(key: keyof typeof translations["pt"], params?: Record<string, string | number>) {
     let str = translations[lang]?.[key] || translations["pt"]?.[key] || "";
     if (params) {
       Object.entries(params).forEach(([k, v]) => {
@@ -197,7 +197,7 @@ export default function App() {
       });
     }
     return str;
-  };
+  }
 
   const currentChallenge = localizedChallenges.find(c => c.id === saveState.currentLevelId) || localizedChallenges[0];
 
