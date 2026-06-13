@@ -18,5 +18,6 @@ jobs:
           git reset --hard origin/main
           docker compose down
           docker builder prune -f
+          docker build -t gamehq-compile-base:latest -f scratch/Dockerfile.compile-base scratch/
           docker compose build --no-cache
           docker compose up -d

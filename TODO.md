@@ -22,7 +22,7 @@ Este documento resume a situação atual do projeto **ROOT ACCESS** e mapeia o q
 + - [x] Rodar o jogo localmente/remotamente e testar a navegação e a resolução das fases.
  
  ### 2. Deploy & Git
- - [ ] Realizar revisão de segurança nos contêineres Docker gerados.
+ - [x] Realizar revisão de segurança nos contêineres Docker gerados.
 - - [ ] Executar commit único e atômico e fazer o push para o repositório público.
 + - [x] Executar commit único e atômico e fazer o push para o repositório público.
 
