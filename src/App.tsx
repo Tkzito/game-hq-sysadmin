@@ -413,40 +413,82 @@ export default function App() {
   };
 
   const processValidationResult = (check: { success: boolean; message?: string }) => {
-  if (check.success) {
-    // Success feedback
-    setFeedbackMsg({
-      text: check.message || "Desafio concluído com sucesso!",
-      type: "success",
-    });
-    // Append success line to terminal output
-    setTerminalLines(prev => [
-      ...prev,
-      {
-        id: `${Date.now()}-success`,
-        text: `[✓] VALIDAÇÃO CONCLUÍDA: ${check.message || "Meta cumprida."}`,
-        type: "output",
-        timestamp: new Date().toLocaleTimeString(),
-      },
-    ]);
-  } else {
-    triggerBeep(180, 0.4, "square", 0.07);
-    setFeedbackMsg({
-      text: check.message || "O sistema ainda detecta irregularidades ou inconsistências pendentes.",
-      type: "error",
-    });
-    // Append failure line
-    setTerminalLines(prev => [
-      ...prev,
-      {
-        id: `${Date.now()}-fail`,
-        text: `[X] VALIDAÇÃO FALHOU: ${check.message || "Meta não cumprida."}`,
+    if (check.success) {
+      // Success feedback
+      setFeedbackMsg({
+        text: check.message || "Desafio concluído com sucesso!",
+        type: "success",
+      });
+      // Append success line to terminal output
+      setTerminalLines(prev => [
+        ...prev,
+        {
+          id: `${Date.now()}-success`,
+          text: `[✓] VALIDAÇÃO CONCLUÍDA: ${check.message || "Meta cumprida."}`,
+          type: "output",
+          timestamp: new Date().toLocaleTimeString(),
+        },
+      ]);
+
+      // Audio cues for success (vintage tone progression)
+      triggerBeep(520, 0.12, "sine");
+      setTimeout(() => triggerBeep(650, 0.12, "sine"), 100);
+      setTimeout(() => triggerBeep(880, 0.2, "sine"), 200);
+
+      // Play victory success animation
+      const successAsset = getAsset(currentChallenge.id, "success");
+      setShowAnimation({ type: "success", asset: successAsset });
+
+      // Transition state machine after success animation finishes (2 seconds)
+      setTimeout(() => {
+        setSaveState(prev => {
+          const alreadyCompleted = prev.completedLevels.includes(currentChallenge.id);
+          const updatedCompletedLevels = alreadyCompleted
+            ? prev.completedLevels
+            : [...prev.completedLevels, currentChallenge.id];
+          
+          // Reward salary or default 100 credits
+          const reward = currentChallenge.salary ?? 100;
+          const updatedCredits = prev.credits + (alreadyCompleted ? 0 : reward);
+
+          // Progressively restore AURA integrity: 35% base + 5% per level completed (max 100)
+          const updatedAura = Math.min(100, 35 + updatedCompletedLevels.length * 5);
+
+          // Determine next level ID
+          const currentIndex = localizedChallenges.findIndex(c => c.id === currentChallenge.id);
+          const nextChallenge = localizedChallenges[currentIndex + 1];
+          const nextLevelId = nextChallenge ? nextChallenge.id : prev.currentLevelId;
+
+          return {
+            ...prev,
+            completedLevels: updatedCompletedLevels,
+            credits: updatedCredits,
+            auraIntegrity: updatedAura,
+            currentLevelId: nextLevelId
+          };
+        });
+        
+        // Clear level feedback message for the next one
+        setFeedbackMsg({ text: "", type: null });
+      }, 2000);
+    } else {
+      triggerBeep(180, 0.4, "square", 0.07);
+      setFeedbackMsg({
+        text: check.message || "O sistema ainda detecta irregularidades ou inconsistências pendentes.",
         type: "error",
-        timestamp: new Date().toLocaleTimeString(),
-      },
-    ]);
-  }
-};
+      });
+      // Append failure line
+      setTerminalLines(prev => [
+        ...prev,
+        {
+          id: `${Date.now()}-fail`,
+          text: `[X] VALIDAÇÃO FALHOU: ${check.message || "Meta não cumprida."}`,
+          type: "error",
+          timestamp: new Date().toLocaleTimeString(),
+        },
+      ]);
+    }
+  };
 
   // Skip Level for debugging convenience
   const handleSkipLevel = (lvlId: string) => {
