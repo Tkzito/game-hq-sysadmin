@@ -3582,7 +3582,7 @@ export default function App() {
             </div>
 
             {/* Stage Selector / Job Board */}
-            <div className="border border-[#00ff41]/30 bg-[#00ff41]/5 p-4 rounded flex flex-col flex-1">
+            <div id="job-board-section" className="border border-[#00ff41]/30 bg-[#00ff41]/5 p-4 rounded flex flex-col flex-1">
               <div className="flex items-center justify-between mb-2">
                 <h2 className="text-[10px] font-bold uppercase tracking-widest text-[#ff9d00] flex items-center gap-1">
                   <Briefcase className="w-3.5 h-3.5" />
