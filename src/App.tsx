@@ -117,6 +117,8 @@ export default function App() {
   } | null>(null);
   const [checkingOllama, setCheckingOllama] = useState(false);
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
+  const [activeView, setActiveView] = useState<"game" | "levels">("game");
+  const [expandedModule, setExpandedModule] = useState<string | null>(null);
 
   const handleCopyMessage = (text: string, index: number) => {
     navigator.clipboard.writeText(text);
@@ -3255,12 +3257,50 @@ export default function App() {
   // Login panel render before actual screen loads
   if (!saveState.registered) {
     return (
-      <div className="w-full min-h-screen bg-[#060608] text-[#00ff41] font-mono flex flex-col items-center justify-center p-4 select-none relative overflow-hidden">
-        {/* Vintage scanline/crt effect */}
-        <div className="absolute inset-0 pointer-events-none opacity-5 z-50 animate-pulse" 
-             style={{ background: "linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06))", backgroundSize: "100% 4px, 3px 100%" }}></div>
-        
-        <div className="w-full max-w-md border border-[#00ff41] bg-black/85 p-6 rounded shadow-[0_0_30px_rgba(0,255,65,0.15)] relative">
+      <div className="w-full min-h-screen bg-[#07070a] text-[#00ff41] font-mono flex flex-col overflow-x-hidden relative select-none">
+        {/* Global Header Navigation moved from HTML */}
+        <header className="app-header font-mono w-full">
+          <h1 className="logo text-xl font-black tracking-widest text-[#00ff41] cursor-pointer animate-pulse" onClick={() => { setActiveView("game"); triggerBeep(440, 0.05, "sine"); }}>
+            ROOT ACCESS
+          </h1>
+          <nav className="nav">
+            <button 
+              onClick={() => { setActiveView("game"); triggerBeep(440, 0.05, "sine"); }}
+              className={`nav-link bg-transparent border-none outline-none cursor-pointer text-xs font-bold uppercase tracking-wider ${activeView === "game" ? "active" : "text-gray-400 hover:text-white"}`}
+            >
+              Home
+            </button>
+            <button 
+              onClick={() => { setActiveView("levels"); triggerBeep(440, 0.05, "sine"); }}
+              className={`nav-link bg-transparent border-none outline-none cursor-pointer text-xs font-bold uppercase tracking-wider ${activeView === "levels" ? "active" : "text-gray-400 hover:text-white"}`}
+            >
+              Levels
+            </button>
+            <a 
+              href="https://github.com/Tkzito/game-hq-sysadmin" 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              className="nav-link text-xs font-bold uppercase tracking-wider text-gray-400 hover:text-white"
+              onClick={() => triggerBeep(440, 0.05, "sine")}
+            >
+              GitHub
+            </a>
+          </nav>
+        </header>
+
+        <main className="app-main flex-1 flex items-center justify-center p-4">
+          {/* Dynamic Vintage Scanline / CRT overlay */}
+          <div className="absolute inset-0 pointer-events-none opacity-[0.06] z-50 pointer-events-none" 
+               style={{ background: "linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.05), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.05))", backgroundSize: "100% 4.5px, 3.5px 100%" }}></div>
+
+          {activeView === "levels" ? (
+            /* Levels Directory Panel */
+            <div className="w-full max-w-6xl bg-[#0a0a0c] border border-[#00ff41] p-6 flex flex-col relative rounded shadow-[0_0_40px_rgba(0,255,65,0.12)] min-h-[580px]">
+              {renderLevelsDirectory()}
+            </div>
+          ) : (
+            /* Card de Registro */
+            <div className="w-full max-w-md border border-[#00ff41] bg-black/85 p-6 rounded shadow-[0_0_30px_rgba(0,255,65,0.15)] relative">
           <div className="flex items-center justify-between border-b border-[#00ff41] pb-3 mb-6">
             <div className="flex items-center gap-2">
               <Terminal className="w-5 h-5 text-[#00ff41]" />
@@ -3431,19 +3471,197 @@ export default function App() {
 
           <div className="absolute bottom-2 right-4 text-[8px] opacity-40">CWD: PROTOCOL_DOCKER_NATIVE</div>
         </div>
+        )}
+        </main>
       </div>
     );
   }
 
-  return (
-    <div className="w-full min-h-screen bg-[#07070a] text-[#00ff41] font-mono flex flex-col items-center justify-center p-4 overflow-x-hidden relative select-none">
-      
-      {/* Dynamic Vintage Scanline / CRT overlay */}
-      <div className="absolute inset-0 pointer-events-none opacity-[0.06] z-50 pointer-events-none" 
-           style={{ background: "linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.05), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.05))", backgroundSize: "100% 4.5px, 3.5px 100%" }}></div>
+  const renderLevelsDirectory = () => {
+    const modulesMap: Record<string, typeof localizedChallenges> = {};
+    localizedChallenges.forEach(lvl => {
+      const modName = lvl.module || "Módulo 1";
+      if (!modulesMap[modName]) {
+        modulesMap[modName] = [];
+      }
+      modulesMap[modName].push(lvl);
+    });
 
-      {/* Main Interactive Interface Block with Geometric Balance */}
-      <div className="w-full max-w-6xl bg-[#0a0a0c] border border-[#00ff41] p-4 flex flex-col relative rounded shadow-[0_0_40px_rgba(0,255,65,0.12)]">
+    return (
+      <div className="w-full flex flex-col gap-4 animate-fadeIn">
+        <div className="flex items-center justify-between border-b border-[#00ff41]/20 pb-2 mb-2">
+          <div className="flex items-center gap-2">
+            <Cpu className="w-4 h-4 text-[#ff9d00]" />
+            <h2 className="text-xs font-bold uppercase tracking-widest text-[#00ff41]">
+              {lang === "pt" ? "Diretório de Operações — Módulos & Contratos" : "Operation Directory — Modules & Contracts"}
+            </h2>
+          </div>
+          <span className="text-[9px] border border-[#00ff41]/30 px-1 bg-black font-semibold text-gray-400">
+            {lang === "pt" ? "Progresso dos Níveis" : "Levels Progress"}
+          </span>
+        </div>
+
+        <p className="text-[11px] text-gray-400 leading-relaxed mb-1">
+          {lang === "pt" 
+            ? "Abaixo estão listados todos os módulos de especialização em DevOps/SRE/SysAdmin. Clique em um módulo para expandir e iniciar qualquer contrato imediatamente." 
+            : "Below are listed all specialized DevOps/SRE/SysAdmin modules. Click a module to expand and start any contract immediately."}
+        </p>
+
+        <div className="space-y-2.5 overflow-y-auto max-h-[460px] pr-1.5 custom-scrollbar">
+          {Object.keys(modulesMap).map(modName => {
+            const isExpanded = expandedModule === modName;
+            const lvls = modulesMap[modName];
+            const completedCount = lvls.filter(l => saveState.completedLevels.includes(l.id)).length;
+            const isFullyCompleted = completedCount === lvls.length;
+
+            return (
+              <div 
+                key={modName} 
+                className={`border rounded transition-all duration-150 ${
+                  isFullyCompleted 
+                    ? "border-emerald-500/40 bg-emerald-950/5" 
+                    : isExpanded 
+                      ? "border-[#00ff41] bg-[#00ff41]/5 shadow-[0_0_15px_rgba(0,255,65,0.05)]" 
+                      : "border-[#00ff41]/20 bg-black/40 hover:border-[#00ff41]/50"
+                }`}
+              >
+                <div 
+                  onClick={() => {
+                    setExpandedModule(isExpanded ? null : modName);
+                    triggerBeep(330, 0.05, "sine");
+                  }}
+                  className="p-3 flex items-center justify-between cursor-pointer select-none"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className={`text-[9px] px-1.5 py-0.5 rounded font-mono font-bold ${
+                      isFullyCompleted 
+                        ? "bg-emerald-500/20 text-emerald-400" 
+                        : "bg-gray-800 text-gray-400"
+                    }`}>
+                      {completedCount}/{lvls.length} {lang === "pt" ? "Concluídos" : "Done"}
+                    </span>
+                    <span className="text-xs font-bold text-white uppercase tracking-wider">{modName}</span>
+                  </div>
+                  <span className="text-[10px] text-gray-500 uppercase font-mono">
+                    {isExpanded ? "[-]" : "[+]"}
+                  </span>
+                </div>
+
+                {isExpanded && (
+                  <div className="border-t border-[#00ff41]/20 bg-black/80 p-3 space-y-2.5 animate-fadeIn">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-[11px] font-mono border-collapse">
+                        <thead>
+                          <tr className="border-b border-[#00ff41]/20 text-gray-500 pb-2">
+                            <th className="pb-2 font-bold uppercase">{lang === "pt" ? "ID" : "ID"}</th>
+                            <th className="pb-2 font-bold uppercase">{lang === "pt" ? "Nome do Contrato" : "Contract Name"}</th>
+                            <th className="pb-2 font-bold uppercase">{lang === "pt" ? "Dificuldade" : "Difficulty"}</th>
+                            <th className="pb-2 font-bold uppercase">{lang === "pt" ? "Recompensa" : "Reward"}</th>
+                            <th className="pb-2 font-bold uppercase">{lang === "pt" ? "Status" : "Status"}</th>
+                            <th className="pb-2 font-bold uppercase text-right">{lang === "pt" ? "Operação" : "Operation"}</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {lvls.map(lvl => {
+                            const isLvlDone = saveState.completedLevels.includes(lvl.id);
+                            
+                            let diffColor = "text-[#00ff41] bg-[#00ff41]/10";
+                            if (lvl.difficulty === "medium") diffColor = "text-yellow-400 bg-yellow-400/10";
+                            else if (lvl.difficulty === "hard") diffColor = "text-red-400 bg-red-400/10";
+                            else if (lvl.difficulty === "legendary") diffColor = "text-purple-400 bg-purple-400/10";
+
+                            return (
+                              <tr key={lvl.id} className="border-b border-[#00ff41]/10 hover:bg-[#00ff41]/5 transition-colors">
+                                <td className="py-2.5 font-bold text-gray-400">{lvl.id}</td>
+                                <td className="py-2.5 font-bold text-white max-w-xs truncate">{lvl.name}</td>
+                                <td className="py-2.5">
+                                  <span className={`text-[8px] px-1 py-0.5 rounded font-bold uppercase ${diffColor}`}>
+                                    {lvl.difficulty}
+                                  </span>
+                                </td>
+                                <td className="py-2.5 text-yellow-500 font-bold">R$ {lvl.salary}</td>
+                                <td className="py-2.5">
+                                  {isLvlDone ? (
+                                    <span className="text-emerald-400 font-bold">[✓] {lang === "pt" ? "Concluído" : "Completed"}</span>
+                                  ) : (
+                                    <span className="text-gray-600 font-bold">[ ] {lang === "pt" ? "Pendente" : "Pending"}</span>
+                                  )}
+                                </td>
+                                <td className="py-2.5 text-right">
+                                  <button
+                                    onClick={() => {
+                                      setSaveState(prev => ({ ...prev, currentLevelId: lvl.id }));
+                                      setActiveView("game");
+                                      triggerBeep(520, 0.1, "sine");
+                                    }}
+                                    className="bg-[#00ff41]/10 hover:bg-[#00ff41] hover:text-black border border-[#00ff41] text-[#00ff41] px-2 py-0.5 rounded font-mono font-bold text-[9px] uppercase cursor-pointer transition-all"
+                                  >
+                                    {lang === "pt" ? "Iniciar" : "Start"}
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="w-full min-h-screen bg-[#07070a] text-[#00ff41] font-mono flex flex-col overflow-x-hidden relative select-none">
+      
+      {/* Global Header Navigation moved from HTML */}
+      <header className="app-header font-mono w-full">
+        <h1 className="logo text-xl font-black tracking-widest text-[#00ff41] cursor-pointer animate-pulse" onClick={() => { setActiveView("game"); triggerBeep(440, 0.05, "sine"); }}>
+          ROOT ACCESS
+        </h1>
+        <nav className="nav">
+          <button 
+            onClick={() => { setActiveView("game"); triggerBeep(440, 0.05, "sine"); }}
+            className={`nav-link bg-transparent border-none outline-none cursor-pointer text-xs font-bold uppercase tracking-wider ${activeView === "game" ? "active" : "text-gray-400 hover:text-white"}`}
+          >
+            Home
+          </button>
+          <button 
+            onClick={() => { setActiveView("levels"); triggerBeep(440, 0.05, "sine"); }}
+            className={`nav-link bg-transparent border-none outline-none cursor-pointer text-xs font-bold uppercase tracking-wider ${activeView === "levels" ? "active" : "text-gray-400 hover:text-white"}`}
+          >
+            Levels
+          </button>
+          <a 
+            href="https://github.com/Tkzito/game-hq-sysadmin" 
+            target="_blank" 
+            rel="noopener noreferrer" 
+            className="nav-link text-xs font-bold uppercase tracking-wider text-gray-400 hover:text-white"
+            onClick={() => triggerBeep(440, 0.05, "sine")}
+          >
+            GitHub
+          </a>
+        </nav>
+      </header>
+
+      {/* Main Content Area */}
+      <main className="app-main flex-1 flex items-center justify-center p-4">
+        {/* Dynamic Vintage Scanline / CRT overlay */}
+        <div className="absolute inset-0 pointer-events-none opacity-[0.06] z-50 pointer-events-none" 
+             style={{ background: "linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.05), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.05))", backgroundSize: "100% 4.5px, 3.5px 100%" }}></div>
+
+        {activeView === "levels" ? (
+          /* Levels Directory Panel */
+          <div className="w-full max-w-6xl bg-[#0a0a0c] border border-[#00ff41] p-6 flex flex-col relative rounded shadow-[0_0_40px_rgba(0,255,65,0.12)] min-h-[580px]">
+            {renderLevelsDirectory()}
+          </div>
+        ) : (
+          /* Main Interactive Interface Block with Geometric Balance */
+          <div className="w-full max-w-6xl bg-[#0a0a0c] border border-[#00ff41] p-4 flex flex-col relative rounded shadow-[0_0_40px_rgba(0,255,65,0.12)]">
         
         {/* Top Header Bar */}
         <div id="game-header-row" className="flex flex-col md:flex-row items-start md:items-center justify-between border-b border-[#00ff41] pb-3 mb-4 gap-4 md:gap-0">
@@ -3808,8 +4026,9 @@ export default function App() {
             </div>
           </div>
         </div>
-
       </div>
+      )}
+      </main>
 
       {settingsOpen && (
         <div className="fixed inset-0 z-50 bg-black/85 flex items-center justify-center p-4 font-mono select-none">
