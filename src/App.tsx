@@ -32,7 +32,7 @@ import {
 } from "lucide-react";
 import { CHALLENGES } from "./data/challenges";
 import TerminalView from "./components/TerminalView";
-import AnimationPlayer from "./components/AnimationPlayer";
+import { AnimationPlayer } from "./components/AnimationPlayer";
 import animations from "./data/animations.json";
 
 import { SaveState, VirtualFS, TerminalLine, ChatMessage, FSItem } from "./types";
@@ -413,28 +413,40 @@ export default function App() {
   };
 
   const processValidationResult = (check: { success: boolean; message?: string }) => {
-    if (check.success) {
-          timestamp: new Date().toLocaleTimeString()
-        }
-      ]);
-    } else {
-      triggerBeep(180, 0.4, "square", 0.07);
-      setFeedbackMsg({
-        text: check.message || "O sistema ainda detecta irregularidades ou inconsistências pendentes.",
-        type: "error"
-      });
-      // Append failure line
-      setTerminalLines(prev => [
-        ...prev,
-        {
-          id: `${Date.now()}-fail`,
-          text: `[X] VALIDAÇÃO FALHOU: ${check.message || "Meta não cumprida."}`,
-          type: "error",
-          timestamp: new Date().toLocaleTimeString()
-        }
-      ]);
-    }
-  };
+  if (check.success) {
+    // Success feedback
+    setFeedbackMsg({
+      text: check.message || "Desafio concluído com sucesso!",
+      type: "success",
+    });
+    // Append success line to terminal output
+    setTerminalLines(prev => [
+      ...prev,
+      {
+        id: `${Date.now()}-success`,
+        text: `[✓] VALIDAÇÃO CONCLUÍDA: ${check.message || "Meta cumprida."}`,
+        type: "output",
+        timestamp: new Date().toLocaleTimeString(),
+      },
+    ]);
+  } else {
+    triggerBeep(180, 0.4, "square", 0.07);
+    setFeedbackMsg({
+      text: check.message || "O sistema ainda detecta irregularidades ou inconsistências pendentes.",
+      type: "error",
+    });
+    // Append failure line
+    setTerminalLines(prev => [
+      ...prev,
+      {
+        id: `${Date.now()}-fail`,
+        text: `[X] VALIDAÇÃO FALHOU: ${check.message || "Meta não cumprida."}`,
+        type: "error",
+        timestamp: new Date().toLocaleTimeString(),
+      },
+    ]);
+  }
+};
 
   // Skip Level for debugging convenience
   const handleSkipLevel = (lvlId: string) => {

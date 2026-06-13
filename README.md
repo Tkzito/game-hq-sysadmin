@@ -88,3 +88,26 @@ Este projeto segue padrões rígidos para garantir a segurança da máquina hosp
 *   **Sem Bind Mounts:** O container não possui acesso ao sistema de arquivos do seu notebook.
 *   **Acesso Restrito:** O jogador opera sob um usuário comum (`operator`), precisando usar `sudo` para tarefas administrativas simuladas.
 *   **Limites de Recursos:** Parâmetros de cgroups ativados para evitar *fork bombs* ou loops de CPU de travarem o sistema operacional host.
+
+## 🎞️ Animações
+
+Esta atualização introduz o **Componente `AnimationPlayer`** que reproduz animações Lottie em transições de nível e validações de sucesso.
+
+### Como usar
+```tsx
+import AnimationPlayer from "./components/AnimationPlayer";
+
+<AnimationPlayer animation="level-up" />
+```
+
+- **Arquivos de animação** – JSONs em `src/animations/` (ex.: `level-up.json`, `success.json`).
+- **Assets** – Imagens em `src/assets/` utilizadas pelas animações.
+- **Integração** – O estado do jogo aguarda 2 s antes de avançar, permitindo que a animação conclua.
+
+### Segurança
+- As animações são carregadas via `import` seguro; não há execução de código arbitrário.
+- O componente usa `dangerouslySetInnerHTML` apenas com conteúdo sanitizado fornecido por Lottie.
+
+---
+
+*Esta seção será atualizada conforme novas animações forem adicionadas.*
