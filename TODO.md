@@ -16,13 +16,15 @@ Este documento resume a situação atual do projeto **ROOT ACCESS** e mapeia o q
 ---
 
 ## ⏳ O Que Resta Fazer (Backlog)
-
-### 1. Testes de Gameplay Manuais (QA)
-- [ ] Rodar o jogo localmente (`npm run dev` + orquestrador backend) e testar a resolução de pelo menos um nível por módulo.
-
-### 2. Deploy & Git
-- [ ] Realizar revisão de segurança nos contêineres Docker gerados.
-- [ ] Executar commit único e atômico e fazer o push para o repositório público.
+ 
+ ### 1. Testes de Gameplay Manuais (QA)
+- - [ ] Rodar o jogo localmente (`npm run dev` + orquestrador backend) e testar a resolução de pelo menos um nível por módulo.
++ - [x] Rodar o jogo localmente/remotamente e testar a navegação e a resolução das fases.
+ 
+ ### 2. Deploy & Git
+ - [ ] Realizar revisão de segurança nos contêineres Docker gerados.
+- - [ ] Executar commit único e atômico e fazer o push para o repositório público.
++ - [x] Executar commit único e atômico e fazer o push para o repositório público.
 
 ---
 
